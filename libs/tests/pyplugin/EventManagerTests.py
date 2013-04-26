@@ -1,9 +1,9 @@
 import unittest
 
-from EventManager import *
+from pyplugin.EventManager import *
 
 
-class PersonTest(unittest.TestCase):
+class EventManagerTests(unittest.TestCase):
     def setUp(self):
         self.manager = EventManager()
 

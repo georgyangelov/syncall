@@ -1,6 +1,6 @@
 import unittest
 
-from DataFilterManager import *
+from pyplugin.DataFilterManager import *
 
 
 class DataFilterManagerTests(unittest.TestCase):
