@@ -42,3 +42,24 @@ class PluginManagerTests(unittest.TestCase):
 
         self.assertEqual(exited, 1)
         self.assertEqual(loaded, 2)
+
+    def test_event_decorator(self):
+        manager = self.get_plugin_manager()
+        manager.load_all()
+
+        data = {'tested': False}
+
+        self.assertTrue(manager.event_manager.notify('test_event', data))
+        self.assertTrue(data['tested'])
+
+    def test_filter_decorator(self):
+        manager = self.get_plugin_manager()
+        manager.load_all()
+
+        data = {'tested_filter': False}
+
+        self.assertEqual(
+            manager.filter_manager.map('test_filter', data),
+            {'tested_filter': True}
+        )
+        self.assertEqual(data, {'tested_filter': True})

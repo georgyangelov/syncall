@@ -38,7 +38,7 @@ class DataFilterManager:
             try:
                 data_filter(data)
             except StopPropagation:
-                self.logger.debug('Filter stopped propagation of `{}`'
+                self.logger.error('Filter stopped propagation of `{}`'
                                   .format(channel))
                 break
 

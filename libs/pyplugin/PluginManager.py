@@ -14,6 +14,7 @@ class PluginManager:
     def __init__(self, plugin_dirs):
         self.plugin_dirs = plugin_dirs
         self._plugins = dict()
+        self.plugin_manager = self
         self.event_manager = EventManager()
         self.filter_manager = DataFilterManager()
         self.logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ class PluginManager:
             plugin.name = name
 
         plugin.plugin_init()
+        plugin._attach_handlers()
         self.logger.info('Initialized plugin `{}`'.format(name))
 
         return plugin
@@ -59,6 +61,7 @@ class PluginManager:
     def reload(self, name):
         self.logger.debug('Reloading plugin `{}`'.format(name))
         self._plugins[name][1].plugin_exit()
+        self._plugins[name][1]._detach_handlers()
 
         module = imp.reload(self._plugins[name][0])
         plugin_class = self._find_plugin(module)
