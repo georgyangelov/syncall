@@ -12,7 +12,7 @@ class NoPluginEntryPointError(Exception):
 class PluginManager:
     def __init__(self, plugin_dirs):
         self.plugin_dirs = plugin_dirs
-        self.plugins = dict()
+        self._plugins = dict()
         self.event_manager = EventManager()
         self.filter_manager = DataFilterManager()
 
@@ -41,18 +41,18 @@ class PluginManager:
 
             plugin_class = PluginManager._find_plugin(module)
 
-            self.plugins[name] = (module, self.set_up_plugin(plugin_class))
+            self._plugins[name] = (module, self.set_up_plugin(plugin_class))
 
     def reload(self, name):
-        self.plugins[name][1].plugin_exit()
+        self._plugins[name][1].plugin_exit()
 
-        module = imp.reload(self.plugins[name][0])
+        module = imp.reload(self._plugins[name][0])
         plugin_class = PluginManager._find_plugin(module)
 
-        self.plugins[name] = (module, self.set_up_plugin(plugin_class))
+        self._plugins[name] = (module, self.set_up_plugin(plugin_class))
 
     def get_plugins(self):
-        return {name: plugin[1] for name, plugin in self.plugins.items()}
+        return {name: plugin[1] for name, plugin in self._plugins.items()}
 
     def __getitem__(self, name):
-        return self.plugins[name][1]
+        return self._plugins[name][1]
