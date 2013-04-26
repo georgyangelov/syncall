@@ -1,6 +1,7 @@
 import pkgutil
 import inspect
 import imp
+import logging
 
 from pyplugin import Plugin, EventManager, DataFilterManager
 
@@ -15,11 +16,13 @@ class PluginManager:
         self._plugins = dict()
         self.event_manager = EventManager()
         self.filter_manager = DataFilterManager()
+        self.logger = logging.getLogger(__name__)
 
-    @staticmethod
-    def _find_plugin(module):
-        for _, klass in inspect.getmembers(module, inspect.isclass):
+    def _find_plugin(self, module):
+        for class_name, klass in inspect.getmembers(module, inspect.isclass):
             if issubclass(klass, Plugin) and klass is not Plugin:
+                self.logger.debug('Found `{}` class as entry point for `{}`'
+                                  .format(class_name, module.__name__))
                 return klass
 
         raise NoPluginEntryPointError(
@@ -28,6 +31,8 @@ class PluginManager:
         )
 
     def set_up_plugin(self, name, plugin_class):
+        self.logger.debug('Initializing plugin `{}`'.format(name))
+
         plugin = plugin_class()
         plugin.event_manager = self.event_manager
         plugin.filter_manager = self.filter_manager
@@ -36,25 +41,30 @@ class PluginManager:
             plugin.name = name
 
         plugin.plugin_init()
+        self.logger.info('Initialized plugin `{}`'.format(name))
 
         return plugin
 
     def load_all(self):
         for importer, name, _ in pkgutil.walk_packages(self.plugin_dirs):
+            self.logger.info('Loading plugin `{}`'.format(name))
+
             module = importer.find_loader(name)[0].load_module()
 
-            plugin_class = PluginManager._find_plugin(module)
+            plugin_class = self._find_plugin(module)
             plugin_object = self.set_up_plugin(name, plugin_class)
 
             self._plugins[name] = (module, plugin_object)
 
     def reload(self, name):
+        self.logger.debug('Reloading plugin `{}`'.format(name))
         self._plugins[name][1].plugin_exit()
 
         module = imp.reload(self._plugins[name][0])
-        plugin_class = PluginManager._find_plugin(module)
+        plugin_class = self._find_plugin(module)
 
         self._plugins[name] = (module, self.set_up_plugin(name, plugin_class))
+        self.logger.info('Plugin `{}` reloaded'.format(name))
 
     def get_plugins(self):
         return {name: plugin[1] for name, plugin in self._plugins.items()}
