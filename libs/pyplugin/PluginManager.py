@@ -27,10 +27,14 @@ class PluginManager:
             .format(module.__name__)
         )
 
-    def set_up_plugin(self, plugin_class):
+    def set_up_plugin(self, name, plugin_class):
         plugin = plugin_class()
         plugin.event_manager = self.event_manager
         plugin.filter_manager = self.filter_manager
+
+        if plugin.name is None:
+            plugin.name = name
+
         plugin.plugin_init()
 
         return plugin
@@ -40,8 +44,9 @@ class PluginManager:
             module = importer.find_loader(name)[0].load_module()
 
             plugin_class = PluginManager._find_plugin(module)
+            plugin_object = self.set_up_plugin(name, plugin_class)
 
-            self._plugins[name] = (module, self.set_up_plugin(plugin_class))
+            self._plugins[name] = (module, plugin_object)
 
     def reload(self, name):
         self._plugins[name][1].plugin_exit()
@@ -49,7 +54,7 @@ class PluginManager:
         module = imp.reload(self._plugins[name][0])
         plugin_class = PluginManager._find_plugin(module)
 
-        self._plugins[name] = (module, self.set_up_plugin(plugin_class))
+        self._plugins[name] = (module, self.set_up_plugin(name, plugin_class))
 
     def get_plugins(self):
         return {name: plugin[1] for name, plugin in self._plugins.items()}

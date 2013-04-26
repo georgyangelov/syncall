@@ -1,5 +1,6 @@
 import os
 import sys
+import unittest
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(CURRENT_DIR + '/libs')
