@@ -14,7 +14,6 @@ class PluginManager:
     def __init__(self, plugin_dirs):
         self.plugin_dirs = plugin_dirs
         self._plugins = dict()
-        self.plugin_manager = self
         self.event_manager = EventManager()
         self.filter_manager = DataFilterManager()
         self.logger = logging.getLogger(__name__)
@@ -35,6 +34,7 @@ class PluginManager:
         self.logger.debug('Initializing plugin `{}`'.format(name))
 
         plugin = plugin_class()
+        plugin.plugin_manager = self
         plugin.event_manager = self.event_manager
         plugin.filter_manager = self.filter_manager
 
