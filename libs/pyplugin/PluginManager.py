@@ -51,5 +51,8 @@ class PluginManager:
 
         self.plugins[name] = (module, self.set_up_plugin(plugin_class))
 
+    def get_plugins(self):
+        return {name: plugin[1] for name, plugin in self.plugins.items()}
+
     def __getitem__(self, name):
         return self.plugins[name][1]
