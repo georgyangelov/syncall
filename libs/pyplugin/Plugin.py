@@ -4,3 +4,9 @@ class Plugin:
         self.version = version
         self.event_manager = event_manager
         self.filter_manager = filter_manager
+
+    def plugin_init(self):
+        pass
+
+    def plugin_exit(self):
+        pass
