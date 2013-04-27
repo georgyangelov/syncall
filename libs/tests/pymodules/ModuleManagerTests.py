@@ -3,7 +3,7 @@ import os
 
 from pymodules.ModuleManager import *
 from pymodules.EventManager import *
-from pymodules.DataFilterManager import *
+from pymodules.DataManager import *
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -59,7 +59,7 @@ class ModuleManagerTests(unittest.TestCase):
         data = {'tested_filter': False}
 
         self.assertEqual(
-            manager.filter_manager.map('test_filter', data),
+            manager.data_manager.map('test_filter', data),
             {'tested_filter': True}
         )
         self.assertEqual(data, {'tested_filter': True})

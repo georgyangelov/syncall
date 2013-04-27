@@ -1,11 +1,11 @@
 import unittest
 
-from pymodules.DataFilterManager import *
+from pymodules.DataManager import *
 
 
-class DataFilterManagerTests(unittest.TestCase):
+class DataManagerTests(unittest.TestCase):
     def setUp(self):
-        self.manager = DataFilterManager()
+        self.manager = DataManager()
 
     def tearDown(self):
         del self.manager
@@ -13,7 +13,7 @@ class DataFilterManagerTests(unittest.TestCase):
     def test_no_filters(self):
         data = self.manager.map('no_filters', {'data': 1234})
         self.assertEqual(data, {'data': 1234})
-        self.assertEqual(self.manager.handlers_for('no_filters'), tuple())
+        self.assertEqual(self.manager.providers_for('no_filters'), tuple())
 
     def test_one_filter(self):
         def filter_one(data):
@@ -24,7 +24,7 @@ class DataFilterManagerTests(unittest.TestCase):
         data = self.manager.map('one_filter', {'dummy': 4444})
         self.assertEqual(data, {'dummy': 1234})
         self.assertEqual(
-            self.manager.handlers_for('one_filter'),
+            self.manager.providers_for('one_filter'),
             (filter_one,)
         )
 
@@ -38,7 +38,7 @@ class DataFilterManagerTests(unittest.TestCase):
         data = self.manager.map('multiple_filters', {'dummy': 0})
         self.assertEqual(data, {'dummy': 2})
         self.assertEqual(
-            self.manager.handlers_for('multiple_filters'),
+            self.manager.providers_for('multiple_filters'),
             (filter_one, filter_one)
         )
 
@@ -68,6 +68,6 @@ class DataFilterManagerTests(unittest.TestCase):
 
         self.assertEqual(data, {'list': [5, 4, 3, 2, 1]})
         self.assertEqual(
-            self.manager.handlers_for('priorities'),
+            self.manager.providers_for('priorities'),
             (dummy_5, dummy_4, dummy_3, dummy_2, dummy_1)
         )

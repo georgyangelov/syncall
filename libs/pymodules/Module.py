@@ -47,18 +47,18 @@ def event_handler(event_name, priority=1):
     return wrapper
 
 
-def data_filter(channel, priority=1):
+def data_provider(channel, priority=1):
     def wrapper(func):
         def attach(module):
             bound_func = func.__get__(module, module.__class__)
-            module.filter_manager.on(channel, bound_func, priority)
+            module.data_manager.on(channel, bound_func, priority)
 
         def detach(module):
             bound_func = func.__get__(module, module.__class__)
-            module.filter_manager.off(channel, bound_func)
+            module.data_manager.off(channel, bound_func)
 
-        func._filter_name = channel
-        func._filter_priority = priority
+        func._provider_name = channel
+        func._provider_priority = priority
         func._attach = attach
         func._detach = detach
 

@@ -3,7 +3,7 @@ import inspect
 import imp
 import logging
 
-from pymodules import Module, EventManager, DataFilterManager
+from pymodules import Module, EventManager, DataManager
 
 
 class NoModuleEntryPointError(Exception):
@@ -15,7 +15,7 @@ class ModuleManager:
         self.module_dirs = module_dirs
         self._modules = dict()
         self.event_manager = EventManager()
-        self.filter_manager = DataFilterManager()
+        self.data_manager = DataManager()
         self.logger = logging.getLogger(__name__)
 
     def _find_module(self, module):
@@ -36,7 +36,7 @@ class ModuleManager:
         module = module_class()
         module.module_manager = self
         module.event_manager = self.event_manager
-        module.filter_manager = self.filter_manager
+        module.data_manager = self.data_manager
 
         if module.name is None:
             module.name = name

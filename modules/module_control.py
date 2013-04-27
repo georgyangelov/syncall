@@ -4,7 +4,7 @@ import re
 from pymodules.Module import *
 
 
-class TestModule(Module):
+class ModuleControl(Module):
     def __init__(self):
         super().__init__(self)
         self.logger = logging.getLogger(__name__)

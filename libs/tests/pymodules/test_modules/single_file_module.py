@@ -15,6 +15,6 @@ class SingleFileModule(Module):
     def test_event(self, event_data):
         event_data['tested'] = True
 
-    @data_filter('test_filter')
-    def test_filter(self, data):
+    @data_provider('test_filter')
+    def test_provider(self, data):
         data['tested_filter'] = True
