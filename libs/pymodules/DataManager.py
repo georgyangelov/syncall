@@ -1,4 +1,5 @@
 import logging
+from pymodules.EventManager import StopPropagation
 
 
 class DataManager:
@@ -25,7 +26,7 @@ class DataManager:
             del self.providers[channel][handler_func_list.index(data_provider)]
             self.logger.debug('Removed data provider for `{}`'.format(channel))
 
-    def map(self, channel, data=None):
+    def request(self, channel, data=None):
         self.logger.debug(
             'Requesting data for `{}`'.format(channel),
             extra={'data': data}
@@ -52,9 +53,6 @@ class DataManager:
         )
 
         return data
-
-    def request(self, channel):
-        return self.map(channel, None)
 
     def providers_for(self, channel):
         if channel not in self.providers:
