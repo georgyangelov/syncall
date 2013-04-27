@@ -59,7 +59,7 @@ class ModuleManagerTests(unittest.TestCase):
         data = {'tested_filter': False}
 
         self.assertEqual(
-            manager.data_manager.map('test_filter', data),
+            manager.data_manager.request('test_filter', data),
             {'tested_filter': True}
         )
         self.assertEqual(data, {'tested_filter': True})
