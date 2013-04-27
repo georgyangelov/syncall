@@ -8,7 +8,7 @@ sys.path.append(CURRENT_DIR + '/libs')
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="[%(levelname)s] [%(name)s.%(funcName)s] -> %(message)s"
+    format="%(levelname)-5s | %(name)-23s | %(funcName)-13s | %(message)s"
 )
 
 if __name__ == '__main__':
