@@ -4,6 +4,7 @@ import os
 
 import pathext
 
+from decorator_utils import delay_keys
 from pymodules.Module import *
 
 
@@ -55,24 +56,42 @@ class ModuleControl(Module):
         )
 
     @event_handler('dir_change')
+    @delay_keys(5, lambda event: event['src_path'])
     def dir_change(self, event):
-        module_paths = {
-            os.path.realpath(module.__file__): name
+        module_names = {
+            pathext.get_module_path(module): name
             for name, (module, _) in self.module_manager._modules.items()
         }
 
+        current_path = os.path.realpath(event['src_path'])
         best_path = pathext.longest_prefix(
-            os.path.realpath(event.src_path),
-            module_paths.keys()
+            current_path,
+            module_names.keys()
         )
 
-        if best_path in module_paths:
-            # One module changed
-            self.logger.info("Module `{}` changed"
-                             .format(module_paths[best_path]))
-            self.module_manager.reload(module_paths[best_path])
+        if best_path in module_names:
+            if event['type'] == 'deleted':
+                is_subdir = any(
+                    pathext.is_direct_child(modules_dir, current_path)
+                    for modules_dir in self.module_manager.module_dirs
+                )
+
+                if not is_subdir:
+                    return  # Modified event will follow for the parent dir
+
+                # Module deleted
+                self.module_manager.unload(module_names[best_path])
+            else:
+                # One module changed
+                self.logger.info("Module `{}` changed"
+                                 .format(module_names[best_path]))
+                self.module_manager.reload(module_names[best_path])
         else:
-            # New module
-            self.logger.info("New module added with path=`{}`"
-                             .format(event.src_path))
-            self.module_manager.load_all()
+            is_subdir = any(pathext.is_direct_child(modules_dir, current_path)
+                            for modules_dir in self.module_manager.module_dirs)
+
+            if event['type'] != 'deleted' and is_subdir:
+                # New module
+                self.logger.info("New module added with path=`{}`"
+                                 .format(event['src_path']))
+                self.module_manager.load_all()

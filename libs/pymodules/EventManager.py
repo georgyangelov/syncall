@@ -30,7 +30,8 @@ class EventManager:
 
     def notify(self, event_name, event_data=None):
         self.logger.debug(
-            'Raised event `{}`'.format(event_name),
+            'Raised event `{}`:\n data={}'
+            .format(event_name, repr(event_data)),
             extra={'data': event_data}
         )
 

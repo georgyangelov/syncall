@@ -1,7 +1,7 @@
 from threading import Timer
 
 
-def delay(time, key_func):
+def delay_keys(time, key_func=None):
     """ Delay given function so that calls
     in short intervals result in one call.
 
@@ -26,6 +26,23 @@ def delay(time, key_func):
 
             delayed_calls[key] = Timer(time, callback)
             delayed_calls[key].start()
+
+        return decorated_func
+
+    return decorator
+
+
+def delay(time):
+    """ Delay given function """
+    def decorator(func):
+        def decorated_func(self, *args, **kwargs):
+            def callback():
+                # bind `func` to `self`
+                bound_func = func.__get__(self, self.__class__)
+                bound_func(*args, **kwargs)
+
+            delay_timer = Timer(time, callback)
+            delay_timer.start()
 
         return decorated_func
 

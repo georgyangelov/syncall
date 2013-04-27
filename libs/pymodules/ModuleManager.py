@@ -86,6 +86,18 @@ class ModuleManager:
             'python_module': module
         })
 
+    def unload(self, name):
+        self.logger.debug('Unloading module `{}`'.format(name))
+        self._modules[name][1].module_exit()
+        self._modules[name][1]._detach_handlers()
+
+        del self._modules[name]
+        self.logger.debug('Unloaded module `{}`'.format(name))
+
+        self.event_manager.notify('module_unload', {
+            'name': name
+        })
+
     def get_modules(self):
         return {name: module[1] for name, module in self._modules.items()}
 

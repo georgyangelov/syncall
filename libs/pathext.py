@@ -62,3 +62,35 @@ def longest_prefix(target_path, paths):
             longest = common
 
     return longest
+
+
+def normalize(path):
+    return os.path.normcase(os.path.normpath(path))
+
+
+def str_compare(path1, path2):
+    norm_path1 = normalize(path1)
+    norm_path2 = normalize(path2)
+
+    return norm_path1 == norm_path2
+
+
+def is_direct_child(path, subpath):
+    path_split = split(normalize(path))
+    subpath_split = split(normalize(subpath))
+
+    if len(path_split) != len(subpath_split) - 1:
+        return False
+
+    for i in range(len(path_split)):
+        if path_split[i] != subpath_split[i]:
+            return False
+
+    return True
+
+
+def get_module_path(module):
+    if hasattr(module, '__path__'):
+        return os.path.realpath(module.__path__[0])
+    else:
+        return os.path.realpath(module.__file__)
