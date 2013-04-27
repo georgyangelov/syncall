@@ -58,6 +58,13 @@ class MonitorEventHandler(PatternMatchingEventHandler):
         self.logger = logging.getLogger(__name__)
         self.event_manager = event_manager
 
-    @delay(1, repr)
+    @delay(1, lambda event: event.src_path)
     def on_any_event(self, event):
-        self.event_manager.notify('dir_change', event)
+        data = {}
+        data['src_path'] = event.src_path
+        data['type'] = event.event_type
+
+        if hasattr(event, 'dst_path'):
+            data['dst_path'] = event.dst_path
+
+        self.event_manager.notify('dir_change', data)
