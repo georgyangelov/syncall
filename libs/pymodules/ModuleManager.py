@@ -41,14 +41,19 @@ class ModuleManager:
         if module.name is None:
             module.name = name
 
-        module.module_init()
         module._attach_handlers()
+        module.module_init()
         self.logger.info('Initialized module `{}`'.format(name))
 
         return module
 
-    def load_all(self):
+    def load_all(self, reload=False):
         for importer, name, _ in pkgutil.walk_packages(self.module_dirs):
+            if name in self._modules:
+                if reload:
+                    self.reload(name)
+                continue
+
             self.logger.info('Loading module `{}`'.format(name))
 
             module = importer.find_loader(name)[0].load_module()
@@ -57,6 +62,12 @@ class ModuleManager:
             module_object = self.set_up_module(name, module_class)
 
             self._modules[name] = (module, module_object)
+
+            self.event_manager.notify('module_load', {
+                'name': name,
+                'module': module_object,
+                'python_module': module
+            })
 
     def reload(self, name):
         self.logger.debug('Reloading module `{}`'.format(name))
@@ -69,8 +80,17 @@ class ModuleManager:
         self._modules[name] = (module, self.set_up_module(name, module_class))
         self.logger.info('Module `{}` reloaded'.format(name))
 
+        self.event_manager.notify('module_reload', {
+            'name': name,
+            'module': self._modules[name],
+            'python_module': module
+        })
+
     def get_modules(self):
         return {name: module[1] for name, module in self._modules.items()}
+
+    def _all_modules(self):
+        return self._modules
 
     def __getitem__(self, name):
         return self._modules[name][1]
