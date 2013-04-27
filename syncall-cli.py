@@ -5,7 +5,7 @@ import logging
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(CURRENT_DIR + '/libs')
 
-from pyplugin import PluginManager
+from pymodules import ModuleManager
 
 # Setup logging
 logging.basicConfig(
@@ -13,12 +13,12 @@ logging.basicConfig(
     format="[%(levelname)s] [%(name)s.%(funcName)s] -> %(message)s"
 )
 
-plugin_manager = PluginManager([CURRENT_DIR + '/plugins'])
-plugin_manager.load_all()
+module_manager = ModuleManager([CURRENT_DIR + '/modules'])
+module_manager.load_all()
 
-plugin_manager.event_manager.notify('app_start', {
+module_manager.event_manager.notify('app_start', {
     'cwd': CURRENT_DIR,
-    'plugins': plugin_manager.get_plugins()
+    'modules': module_manager.get_modules()
 })
 
 while True:
@@ -29,7 +29,7 @@ while True:
     elif len(cmd) == 0:
         continue
     else:
-        is_not_handled = plugin_manager.event_manager.notify('app_cmd', {
+        is_not_handled = module_manager.event_manager.notify('app_cmd', {
             'cmd': cmd
         })
 

@@ -1,10 +1,10 @@
 import logging
 import re
 
-from pyplugin.Plugin import *
+from pymodules.Module import *
 
 
-class TestPlugin(Plugin):
+class TestModule(Module):
     def __init__(self):
         super().__init__(self)
         self.logger = logging.getLogger(__name__)
@@ -15,12 +15,12 @@ class TestPlugin(Plugin):
             match = re.match(r'^reload ([^\s]+)$', data['cmd'])
 
             if match:
-                if match.group(1) in self.plugin_manager.get_plugins():
-                    self.plugin_manager.reload(match.group(1))
+                if match.group(1) in self.module_manager.get_modules():
+                    self.module_manager.reload(match.group(1))
                 else:
-                    self.logger.error("No plugin `{}` loaded"
+                    self.logger.error("No module `{}` loaded"
                                       .format(match.group(1)))
             else:
-                self.logger.error("Usage: reload <plugin_name>")
+                self.logger.error("Usage: reload <module_name>")
 
             return False

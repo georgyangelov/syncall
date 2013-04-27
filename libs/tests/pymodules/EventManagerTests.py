@@ -1,6 +1,6 @@
 import unittest
 
-from pyplugin.EventManager import *
+from pymodules import EventManager
 
 
 class EventManagerTests(unittest.TestCase):

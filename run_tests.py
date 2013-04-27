@@ -12,6 +12,6 @@ logging.basicConfig(
 )
 
 if __name__ == '__main__':
-    from tests.pyplugin.all import *
+    from tests.pymodules.all import *
 
     unittest.main()

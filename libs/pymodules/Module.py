@@ -1,15 +1,15 @@
 import inspect
 
 
-class Plugin:
+class Module:
     def __init__(self, name=None, version=1):
         self.name = name
         self.version = version
 
-    def plugin_init(self):
+    def module_init(self):
         pass
 
-    def plugin_exit(self):
+    def module_exit(self):
         pass
 
     def _attach_handlers(self):
@@ -29,13 +29,13 @@ class Plugin:
 
 def event_handler(event_name, priority=1):
     def wrapper(func):
-        def attach(plugin):
-            bound_func = func.__get__(plugin, plugin.__class__)
-            plugin.event_manager.on(event_name, bound_func, priority)
+        def attach(module):
+            bound_func = func.__get__(module, module.__class__)
+            module.event_manager.on(event_name, bound_func, priority)
 
-        def detach(plugin):
-            bound_func = func.__get__(plugin, plugin.__class__)
-            plugin.event_manager.off(event_name, bound_func)
+        def detach(module):
+            bound_func = func.__get__(module, module.__class__)
+            module.event_manager.off(event_name, bound_func)
 
         func._event_name = event_name
         func._event_priority = priority
@@ -49,13 +49,13 @@ def event_handler(event_name, priority=1):
 
 def data_filter(channel, priority=1):
     def wrapper(func):
-        def attach(plugin):
-            bound_func = func.__get__(plugin, plugin.__class__)
-            plugin.filter_manager.on(channel, bound_func, priority)
+        def attach(module):
+            bound_func = func.__get__(module, module.__class__)
+            module.filter_manager.on(channel, bound_func, priority)
 
-        def detach(plugin):
-            bound_func = func.__get__(plugin, plugin.__class__)
-            plugin.filter_manager.off(channel, bound_func)
+        def detach(module):
+            bound_func = func.__get__(module, module.__class__)
+            module.filter_manager.off(channel, bound_func)
 
         func._filter_name = channel
         func._filter_priority = priority
