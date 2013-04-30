@@ -30,9 +30,7 @@ class ModuleManager:
             .format(module.__name__)
         )
 
-    def set_up_module(self, name, module_class):
-        self.logger.debug('Initializing module `{}`'.format(name))
-
+    def _set_up_module(self, name, module_class):
         module = module_class()
         module.module_manager = self
         module.event_manager = self.event_manager
@@ -43,7 +41,7 @@ class ModuleManager:
 
         module._attach_handlers()
         module.module_init()
-        self.logger.info('Initialized module `{}`'.format(name))
+        self.logger.debug('Initialized module `{}`'.format(name))
 
         return module
 
@@ -59,7 +57,7 @@ class ModuleManager:
             module = importer.find_loader(name)[0].load_module()
 
             module_class = self._find_module(module)
-            module_object = self.set_up_module(name, module_class)
+            module_object = self._set_up_module(name, module_class)
 
             self._modules[name] = (module, module_object)
 
@@ -77,7 +75,7 @@ class ModuleManager:
         module = imp.reload(self._modules[name][0])
         module_class = self._find_module(module)
 
-        self._modules[name] = (module, self.set_up_module(name, module_class))
+        self._modules[name] = (module, self._set_up_module(name, module_class))
         self.logger.info('Module `{}` reloaded'.format(name))
 
         self.event_manager.notify('module_reload', {
