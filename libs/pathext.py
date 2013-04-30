@@ -65,7 +65,7 @@ def longest_prefix(target_path, paths):
 
 
 def normalize(path):
-    return os.path.normcase(os.path.normpath(path))
+    return os.path.normcase(os.path.normpath(path)).replace('\\', '/')
 
 
 def str_compare(path1, path2):

@@ -26,12 +26,12 @@ class DirectoryMonitor(Module):
     def update_monitors(self, _):
         """
         [
-             {
-                 'path': '/dev/python-dev/syncall',
-                 'recursive': True,
-                 'ignores': ['*/.*']
-             }
-         ]
+            {
+                'path': '/dev/python-dev/syncall',
+                'recursive': True,
+                'ignores': ['*/.*']
+            }
+        ]
         """
         monitor_dirs = self.data_manager.request('monitor_dirs', [])
         self.observer.unschedule_all()
