@@ -56,7 +56,7 @@ class ModuleControl(Module):
         )
 
     @event_handler('dir_change')
-    @delay_keys(5, lambda event: event['src_path'])
+    @delay_keys(5, lambda self, event: event['src_path'])
     def dir_change(self, event):
         module_names = {
             pathext.get_module_path(module): name

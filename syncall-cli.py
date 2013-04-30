@@ -11,7 +11,7 @@ from pymodules import ModuleManager
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-LEVEL_CONSOLE_LOG = 15
+logging.CONSOLE = LEVEL_CONSOLE_LOG = 15
 logging.addLevelName(LEVEL_CONSOLE_LOG, "CONSOLE")
 
 
@@ -29,7 +29,7 @@ class ConsoleFormatter(logging.Formatter):
         return super().format(record)
 
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
+console_handler.setLevel(logging.CONSOLE)
 
 formatter = ConsoleFormatter()
 console_handler.setFormatter(formatter)

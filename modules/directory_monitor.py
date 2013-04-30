@@ -58,7 +58,7 @@ class MonitorEventHandler(PatternMatchingEventHandler):
         self.logger = logging.getLogger(__name__)
         self.event_manager = event_manager
 
-    @delay_keys(1, lambda event: event.src_path)
+    @delay_keys(1, lambda self, event: event.src_path)
     def on_any_event(self, event):
         data = {}
         data['src_path'] = event.src_path

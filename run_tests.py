@@ -13,5 +13,6 @@ logging.basicConfig(
 
 if __name__ == '__main__':
     from tests.pymodules.all import *
+    from tests.decorator_utils import *
 
     unittest.main()
