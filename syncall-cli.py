@@ -45,13 +45,13 @@ logging.Logger.console = log_console
 
 # End logging config
 
-module_manager = ModuleManager([CURRENT_DIR + '/modules'])
-module_manager.load_all()
+# module_manager = ModuleManager([CURRENT_DIR + '/modules'])
+# module_manager.load_all()
 
-module_manager.event_manager.notify('app_start', {
-    'cwd': CURRENT_DIR,
-    'modules': module_manager.get_modules()
-})
+# module_manager.event_manager.notify('app_start', {
+#     'cwd': CURRENT_DIR,
+#     'modules': module_manager.get_modules()
+# })
 
 while True:
     cmd = input('~> ')
@@ -61,9 +61,10 @@ while True:
     elif len(cmd) == 0:
         continue
     else:
-        is_not_handled = module_manager.event_manager.notify('app_cmd', {
-            'cmd': cmd
-        })
+        print("Unknown command '" + cmd + "'")
+#         is_not_handled = module_manager.event_manager.notify('app_cmd', {
+#             'cmd': cmd
+#         })
 
-        if is_not_handled:
-            print("Unknown command '" + cmd + "'")
+#         if is_not_handled:
+#             print("Unknown command '" + cmd + "'")
