@@ -1,4 +1,5 @@
 import msgpack
+import logging
 
 from socketserver import TCPServer, StreamRequestHandler
 from threading import Thread
@@ -6,40 +7,62 @@ from threading import Thread
 from events import Event
 
 
-class Messanger:
+class Messanger(Thread):
     """ Delivers and receives TCP packets to/from remote instances. """
 
-    def __init__(self, remote_ip, remote_port):
-        self.packet_received = self.listener.packet_received
+    BUFFER_SIZE = 1024
 
-        self.address = (remote_ip, remote_port)
-        # self.socket =
-        # TODO: TCPConnectionListener otdelen klas, tuk rabota s vrazkata samo
-        self.listener = PacketListener(self.address)
+    def __init__(self, socket, address):
+        self.logger = logging.getLogger(__name__)
 
-    def start_listening(self):
-        self.listener.start()
-
-    def connect(self, data):
-        packet = msgpack.packb(data)
-
-
-class PacketListener(TCPServer, Thread):
-    def __init__(self, address):
         self.packet_received = Event()
-        self._unpacker = msgpack.Unpacker()
+        self.disconnected = Event()
 
-        super().__init__(address, EventNotifierPacketHandler)
+        self.address = address
+        self.socket = socket
+
+        self.__unpacker = msgpack.Unpacker()
 
     def run(self):
-        self.serve_forever()
+        while True:
+            data = clientsock.recv(BUFFER_SIZE)
+
+            if not data:
+                break
+
+            self.__handle_received_data(data)
+            # clientsock.send(msg)
+
+        clientsock.close()
+        self.logger.debug("Connection to {} closed"
+                          .format(address[0]))
+
+    def send(self, data):
+        packet = msgpack.packb(data)
+
+        self.socket.send(packet)
+
+    def __handle_received_data(self, data):
+        self.__unpacker.feed(data)
+
+        for packet in self.__unpacker:
+            self.packet_received.notify(packet)
 
 
-class EventNotifierPacketHandler(StreamRequestHandler):
-    def handle(self):
-        unpacker = self.server._unpacker
+class ConnectionListener(Thread):
+    def __init__(self, address):
+        self.address = address
 
-        unpacker.feed(self.rfile)
+        self.connection_establiashed = Event()
 
-        for packet in unpacker:
-            self.server.packet_received.notify(packet)
+    def run(self):
+        serversock = socket(AF_INET, SOCK_STREAM)
+        serversock.bind(self.address)
+        serversock.listen(5)
+
+        while True:
+            client_socket, client_address = serversock.accept()
+
+            self.connection_establiashed(
+                Messanger(client_socket, client_address)
+            )
