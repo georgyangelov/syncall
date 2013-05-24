@@ -1,5 +1,6 @@
 import msgpack
 import logging
+import socket
 
 from socketserver import TCPServer, StreamRequestHandler
 from threading import Thread
@@ -23,6 +24,13 @@ class Messanger(Thread):
 
         self.__unpacker = msgpack.Unpacker()
 
+    @staticmethod
+    def connect(address):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect(address)
+
+        return Messanger(sock, address)
+
     def run(self):
         while True:
             data = clientsock.recv(BUFFER_SIZE)
@@ -31,7 +39,6 @@ class Messanger(Thread):
                 break
 
             self.__handle_received_data(data)
-            # clientsock.send(msg)
 
         clientsock.close()
         self.logger.debug("Connection to {} closed"
@@ -56,7 +63,7 @@ class ConnectionListener(Thread):
         self.connection_establiashed = Event()
 
     def run(self):
-        serversock = socket(AF_INET, SOCK_STREAM)
+        serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         serversock.bind(self.address)
         serversock.listen(5)
 
