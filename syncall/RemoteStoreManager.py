@@ -1,4 +1,4 @@
-from syncall import Messanger
+from syncall import Messanger, RemoteStore
 
 
 class RemoteStoreManager:
@@ -15,4 +15,9 @@ class RemoteStoreManager:
     def __client_discovered(self, remote_ip):
         if remote_ip not in self.remotes:
             messanger = Messanger.connect((remote_ip, syncall.DEFAULT_PORT))
-            self.remotes.add(messanger)
+            # TODO: Create FileTransport
+            file_transport = None
+
+            remote_store = RemoteStore(messanger, file_transport)
+
+            self.remotes.add(remote_store)
