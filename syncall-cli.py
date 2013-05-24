@@ -2,6 +2,9 @@ import os
 import sys
 import logging
 
+import syncall
+
+
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(CURRENT_DIR + '/libs')
 
@@ -53,6 +56,13 @@ logging.Logger.console = log_console
 #     'modules': module_manager.get_modules()
 # })
 
+network_discovery = syncall.NetworkDiscovery(
+    syncall.DEFAULT_PORT,
+    syncall.VERSION
+)
+network_discovery.start_listening()
+network_discovery.request()
+
 while True:
     cmd = input('~> ')
 
@@ -60,6 +70,8 @@ while True:
         break
     elif len(cmd) == 0:
         continue
+    elif cmd.lower() == 'scan':
+        network_discovery.request()
     else:
         print("Unknown command '" + cmd + "'")
 #         is_not_handled = module_manager.event_manager.notify('app_cmd', {
