@@ -8,8 +8,12 @@ class Event:
     def __iadd__(self, callable):
         self.handlers.add(callable)
 
+        return self
+
     def __isub__(self, callable):
         self.handlers.remove(callable)
+
+        return self
 
     def notify(self, data):
         for handler in self.handlers:

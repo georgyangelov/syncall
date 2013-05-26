@@ -2,11 +2,12 @@ import os
 import sys
 import logging
 
-import syncall
-
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(CURRENT_DIR + '/libs')
+
+import syncall
+
 
 from pymodules import ModuleManager
 
@@ -62,6 +63,12 @@ network_discovery = syncall.NetworkDiscovery(
 )
 network_discovery.start_listening()
 network_discovery.request()
+
+
+def client_discovered(client):
+    print("Discovered {}".format(client))
+
+network_discovery.client_discovered += client_discovered
 
 while True:
     cmd = input('~> ')

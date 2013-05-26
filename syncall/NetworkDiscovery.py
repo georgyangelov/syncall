@@ -24,20 +24,20 @@ class NetworkDiscovery:
         self.listener = BroadcastListener(self.port)
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        self.socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-        self.listener.receive += self.__receive_packet
+        self.listener.packet_received += self.__receive_packet
 
     def start_listening(self):
         self.listener.start()
 
     def request(self):
         """ Sends a discovery request to all hosts on the LAN """
-        self.__broadcast({'version': version}, self.port)
+        self.__broadcast({'version': self.version}, self.port)
 
     def __broadcast(self, data, port):
-        self.socket.sendto(msgpack.packb(data), port)
+        self.socket.sendto(msgpack.packb(data), (BROADCAST_ADDRESS, port))
 
     def __receive_packet(self, data):
         self.logger.debug("Received discovery response from {}"
@@ -49,6 +49,8 @@ class NetworkDiscovery:
 class BroadcastEventNotifierHandler(DatagramRequestHandler):
     def setup(self):
         self.logger = logging.getLogger(__name__)
+
+        super().setup()
 
     def handle(self):
         try:
