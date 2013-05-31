@@ -72,12 +72,14 @@ class BroadcastEventNotifierHandler(DatagramRequestHandler):
 
 class BroadcastListener(UDPServer, Thread):
     def __init__(self, port):
+        UDPServer.__init__(self, ('', port), BroadcastEventNotifierHandler)
+        Thread.__init__(self)
+        self.daemon = True
+
         self.packet_received = Event()
         self.packet_received_error = Event()
 
         self.allow_reuse_address = 1
-        UDPServer.__init__(self, ('', port), BroadcastEventNotifierHandler)
-        Thread.__init__(self)
 
     def run(self):
         self.serve_forever()
