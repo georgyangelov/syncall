@@ -57,11 +57,11 @@ class Messanger(Thread):
 
 
 class ConnectionListener(Thread):
-    def __init__(self, address):
+    def __init__(self, port):
         super().__init__()
         self.daemon = True
 
-        self.address = address
+        self.address = ('', port)
         self.connection_establiashed = Event()
 
     def run(self):

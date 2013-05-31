@@ -33,7 +33,7 @@ class ConsoleFormatter(logging.Formatter):
         return super().format(record)
 
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.CONSOLE)
+console_handler.setLevel(logging.DEBUG)
 
 formatter = ConsoleFormatter()
 console_handler.setFormatter(formatter)
@@ -62,16 +62,19 @@ network_discovery = syncall.NetworkDiscovery(
     syncall.VERSION
 )
 network_discovery.start_listening()
-network_discovery.request()
 
+connection_listener = syncall.ConnectionListener(
+    syncall.DEFAULT_PORT
+)
+connection_listener.start()
 
-def client_discovered(client):
-    print("Discovered {}".format(client))
-
-network_discovery.client_discovered += client_discovered
+store_manager = syncall.RemoteStoreManager(
+    network_discovery,
+    connection_listener
+)
 
 while True:
-    cmd = input('~> ')
+    cmd = input()
 
     if cmd.lower() in ('exit', 'quit', 'x', 'q'):
         break

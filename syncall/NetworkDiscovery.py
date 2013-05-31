@@ -40,10 +40,18 @@ class NetworkDiscovery:
         self.socket.sendto(msgpack.packb(data), (BROADCAST_ADDRESS, port))
 
     def __receive_packet(self, data):
+        if self.__is_self(data['source']):
+            return
+
         self.logger.debug("Received discovery response from {}"
                           .format(data['source']))
 
         self.client_discovered.notify(data['source'])
+
+    def __is_self(self, address):
+        my_ips = socket.gethostbyname_ex(socket.gethostname())[2]
+
+        return address in my_ips
 
 
 class BroadcastEventNotifierHandler(DatagramRequestHandler):
