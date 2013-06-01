@@ -24,7 +24,7 @@ class RemoteStoreManager:
         file_transport = None
 
         remote_store = syncall.RemoteStore(messanger, file_transport)
-        self.logger.debug("Remote connected from {}".format(remote_ip))
+        self.logger.info("Remote connected from {}".format(remote_ip))
 
     def __client_discovered(self, remote_ip):
         if remote_ip not in self.remotes:
