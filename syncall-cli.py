@@ -57,9 +57,12 @@ logging.Logger.console = log_console
 #     'modules': module_manager.get_modules()
 # })
 
+uuid = syncall.get_uuid(CURRENT_DIR + '/.uuid')
+
 network_discovery = syncall.NetworkDiscovery(
     syncall.DEFAULT_PORT,
-    syncall.VERSION
+    syncall.VERSION,
+    uuid
 )
 network_discovery.start_listening()
 
@@ -71,7 +74,8 @@ connection_listener.start()
 store_manager = syncall.RemoteStoreManager(
     network_discovery,
     connection_listener,
-    CURRENT_DIR + 'test/'
+    CURRENT_DIR + 'test/',
+    uuid
 )
 
 while True:

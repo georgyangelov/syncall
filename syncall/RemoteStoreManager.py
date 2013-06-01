@@ -6,11 +6,12 @@ import syncall
 class RemoteStoreManager:
     """ Manages multiple remotes """
 
-    def __init__(self, network_discovery, connection_listener, directory):
+    def __init__(self, network_discovery, connection_listener, directory, id):
         self.logger = logging.getLogger(__name__)
         self.remotes = dict()
 
         self.directory = directory
+        self.uuid = id
 
         self.connection_listener = connection_listener
         connection_listener.connection_establiashed += self.__client_connected

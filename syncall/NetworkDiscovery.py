@@ -1,7 +1,6 @@
 import socket
 import msgpack
 import logging
-import uuid
 
 from socketserver import UDPServer, DatagramRequestHandler
 from threading import Thread
@@ -16,12 +15,12 @@ BROADCAST_ADDRESS = '255.255.255.255'
 class NetworkDiscovery:
     """ Discovers remote SyncAll instances on the same network. """
 
-    def __init__(self, port, version):
+    def __init__(self, port, version, uuid):
         self.logger = logging.getLogger(__name__)
 
-        # Store UUID based on the hostname and current time to check
+		# Store UUID based on the hostname and current time to check
         # if the received broadcast packet is from self
-        self.__id = str(uuid.uuid1())
+        self.uuid = uuid
 
         self.client_discovered = Event()
 
@@ -42,7 +41,7 @@ class NetworkDiscovery:
         """ Sends a discovery request to all hosts on the LAN """
         self.__broadcast({
             'version': self.version,
-            '__id': self.__id
+            'uuid': self.uuid
         }, self.port)
 
     def __broadcast(self, data, port):
@@ -58,7 +57,7 @@ class NetworkDiscovery:
         self.client_discovered.notify(data['source'])
 
     def __is_self(self, data):
-        return data['data']['__id'] == self.__id
+        return data['data']['uuid'] == self.uuid
 
 
 class BroadcastEventNotifierHandler(DatagramRequestHandler):
