@@ -7,11 +7,12 @@ from events import Event
 class RemoteStore:
     """ Manages communication to a single remote SyncAll instance. """
 
-    def __init__(self, messanger):
+    def __init__(self, messanger, directory):
         self.logger = logging.getLogger(__name__)
 
         self.messanger = messanger
-        self.file_transport = syncall.FileTransport(self)
+        self.directory = directory
+        self.file_manager = syncall.FileManager(self)
 
         self.address = self.messanger.address[0]
 

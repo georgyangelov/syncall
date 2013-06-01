@@ -5,4 +5,4 @@ from syncall.Messanger import ConnectionListener, Messanger
 from syncall.NetworkDiscovery import NetworkDiscovery
 from syncall.RemoteStore import RemoteStore
 from syncall.RemoteStoreManager import RemoteStoreManager
-from syncall.FileTransport import FileTransport
+from syncall.FileManager import FileManager, FileTransfer

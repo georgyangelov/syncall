@@ -70,7 +70,8 @@ connection_listener.start()
 
 store_manager = syncall.RemoteStoreManager(
     network_discovery,
-    connection_listener
+    connection_listener,
+    CURRENT_DIR + 'test/'
 )
 
 while True:

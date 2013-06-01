@@ -6,9 +6,11 @@ import syncall
 class RemoteStoreManager:
     """ Manages multiple remotes """
 
-    def __init__(self, network_discovery, connection_listener):
+    def __init__(self, network_discovery, connection_listener, directory):
         self.logger = logging.getLogger(__name__)
         self.remotes = dict()
+
+        self.directory = directory
 
         self.connection_listener = connection_listener
         connection_listener.connection_establiashed += self.__client_connected
@@ -23,7 +25,7 @@ class RemoteStoreManager:
         if remote_ip in self.remotes:
             self.remotes[remote_ip].disconnect()
 
-        remote_store = syncall.RemoteStore(messanger)
+        remote_store = syncall.RemoteStore(messanger, self.directory)
         remote_store.disconnected += self.__client_disconnected
 
         self.remotes[remote_ip] = remote_store
@@ -35,7 +37,7 @@ class RemoteStoreManager:
                 (remote_ip, syncall.DEFAULT_PORT)
             )
 
-            remote_store = syncall.RemoteStore(messanger)
+            remote_store = syncall.RemoteStore(messanger, self.directory)
 
             self.remotes[remote_ip] = remote_store
             self.logger.info("Connected to a remote at {}".format(remote_ip))
