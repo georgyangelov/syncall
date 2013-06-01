@@ -15,9 +15,12 @@ class Event:
 
         return self
 
-    def notify(self, data):
+    def notify(self, data=None):
         for handler in self.handlers:
             handler(data)
 
-    def __call__(self, data):
+    def clear_handlers(self):
+        self.handlers.clear()
+
+    def __call__(self, data=None):
         return self.notify(data)

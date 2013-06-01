@@ -20,7 +20,13 @@ class RemoteStoreManager:
     def __client_connected(self, messanger):
         remote_ip = messanger.address[0]
 
+        if remote_ip in self.remotes:
+            self.remotes[remote_ip].disconnect()
+
         remote_store = syncall.RemoteStore(messanger)
+        remote_store.disconnected += self.__client_disconnected
+
+        self.remotes[remote_ip] = remote_store
         self.logger.info("Remote connected from {}".format(remote_ip))
 
     def __client_discovered(self, remote_ip):
@@ -33,3 +39,8 @@ class RemoteStoreManager:
 
             self.remotes[remote_ip] = remote_store
             self.logger.info("Connected to a remote at {}".format(remote_ip))
+
+    def __client_disconnected(self, remote):
+        self.logger.info("Remote at {} disconnected".format(remote.address))
+
+        del self.remotes[remote.address]

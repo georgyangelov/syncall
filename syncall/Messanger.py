@@ -14,6 +14,9 @@ class Messanger(Thread):
     BUFFER_SIZE = 1024
 
     def __init__(self, socket, address):
+        super().__init__()
+        self.daemon = True
+
         self.logger = logging.getLogger(__name__)
 
         self.packet_received = Event()
@@ -24,6 +27,8 @@ class Messanger(Thread):
 
         self.__unpacker = msgpack.Unpacker()
 
+        self.start()
+
     @staticmethod
     def connect(address):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,18 +36,29 @@ class Messanger(Thread):
 
         return Messanger(sock, address)
 
+    def disconnect(self):
+        try:
+            self.socket.close()
+        except:
+            pass
+
     def run(self):
-        while True:
-            data = clientsock.recv(BUFFER_SIZE)
+        with self.socket:
+            while True:
+                try:
+                    data = self.socket.recv(self.BUFFER_SIZE)
+                except ConnectionResetError:
+                    break
 
-            if not data:
-                break
+                if not data:
+                    break
 
-            self.__handle_received_data(data)
+                self.__handle_received_data(data)
 
-        clientsock.close()
-        self.logger.debug("Connection to {} closed"
-                          .format(address[0]))
+        self.logger.debug("Connection to {} closed".format(self.address[0]))
+        self.disconnected.notify()
+        self.disconnected.clear_handlers()
+        self.packet_received.clear_handlers()
 
     def send(self, data):
         packet = msgpack.packb(data)
@@ -53,7 +69,12 @@ class Messanger(Thread):
         self.__unpacker.feed(data)
 
         for packet in self.__unpacker:
-            self.packet_received.notify(packet)
+            try:
+                self.packet_received.notify(packet)
+            except Exception as ex:
+                self.logger.error("Error processing packet from {}"
+                                  .format(self.address[0]))
+                self.logger.exception(ex)
 
 
 class ConnectionListener(Thread):
