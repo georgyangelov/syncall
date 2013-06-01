@@ -57,7 +57,13 @@ logging.Logger.console = log_console
 #     'modules': module_manager.get_modules()
 # })
 
-uuid = syncall.get_uuid(CURRENT_DIR + '/.uuid')
+CONFIG_DIR = os.environ['HOME'] + '/.syncall'
+SHARE_DIR = CONFIG_DIR + '/shared/'
+
+os.makedirs(CONFIG_DIR, exist_ok=True)
+os.makedirs(SHARE_DIR, exist_ok=True)
+
+uuid = syncall.get_uuid(CONFIG_DIR + '/.uuid')
 
 network_discovery = syncall.NetworkDiscovery(
     syncall.DEFAULT_PORT,
@@ -74,7 +80,7 @@ connection_listener.start()
 store_manager = syncall.RemoteStoreManager(
     network_discovery,
     connection_listener,
-    CURRENT_DIR + 'test/',
+    SHARE_DIR,
     uuid
 )
 
