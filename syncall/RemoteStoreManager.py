@@ -20,10 +20,7 @@ class RemoteStoreManager:
     def __client_connected(self, messanger):
         remote_ip = messanger.address[0]
 
-        # TODO: Create FileTransport
-        file_transport = None
-
-        remote_store = syncall.RemoteStore(messanger, file_transport)
+        remote_store = syncall.RemoteStore(messanger)
         self.logger.info("Remote connected from {}".format(remote_ip))
 
     def __client_discovered(self, remote_ip):
@@ -31,10 +28,8 @@ class RemoteStoreManager:
             messanger = syncall.Messanger.connect(
                 (remote_ip, syncall.DEFAULT_PORT)
             )
-            # TODO: Create FileTransport
-            file_transport = None
 
-            remote_store = syncall.RemoteStore(messanger, file_transport)
+            remote_store = syncall.RemoteStore(messanger)
 
             self.remotes[remote_ip] = remote_store
             self.logger.info("Connected to a remote at {}".format(remote_ip))

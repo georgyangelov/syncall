@@ -1,9 +1,12 @@
+import syncall
+
+
 class RemoteStore:
     """ Manages communication to a single remote SyncAll instance. """
 
-    def __init__(self, messanger, file_transport):
+    def __init__(self, messanger):
         self.messanger = messanger
-        self.file_transport = file_transport
+        self.file_transport = syncall.FileTransport(self)
 
     def sync_dir(self):
         """ Syncronizes local and remote directory. """
