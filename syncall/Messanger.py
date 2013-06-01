@@ -2,6 +2,8 @@ import msgpack
 import logging
 import socket
 
+import bintools
+
 from socketserver import TCPServer, StreamRequestHandler
 from threading import Thread
 
@@ -9,7 +11,7 @@ from events import Event
 
 
 class Messanger(Thread):
-    """ Delivers and receives TCP packets to/from remote instances. """
+    """ Delivers and receives packets to/from remote instances using TCP. """
 
     BUFFER_SIZE = 1024
 
@@ -27,8 +29,6 @@ class Messanger(Thread):
 
         self.__unpacker = msgpack.Unpacker()
 
-        self.start()
-
     @staticmethod
     def connect(address):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,6 +41,9 @@ class Messanger(Thread):
             self.socket.close()
         except:
             pass
+
+    def start_receiving(self):
+        self.start()
 
     def run(self):
         with self.socket:
@@ -69,8 +72,9 @@ class Messanger(Thread):
         self.__unpacker.feed(data)
 
         for packet in self.__unpacker:
+            unpacked_packet = bintools.decode_object(packet)
             try:
-                self.packet_received.notify(packet)
+                self.packet_received.notify(unpacked_packet)
             except Exception as ex:
                 self.logger.error("Error processing packet from {}"
                                   .format(self.address[0]))
