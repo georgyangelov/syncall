@@ -7,3 +7,4 @@ from syncall.RemoteStore import RemoteStore
 from syncall.RemoteStoreManager import RemoteStoreManager
 from syncall.FileManager import FileManager
 from syncall.commons import generate_uuid, get_uuid
+from syncall.Directory import Directory

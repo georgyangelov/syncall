@@ -60,6 +60,8 @@ logging.Logger.console = log_console
 CONFIG_DIR = os.environ['HOME'] + '/.syncall'
 SHARE_DIR = CONFIG_DIR + '/shared/'
 
+share_dir_obj = syncall.Directory(SHARE_DIR)
+
 os.makedirs(CONFIG_DIR, exist_ok=True)
 os.makedirs(SHARE_DIR, exist_ok=True)
 
@@ -80,7 +82,7 @@ connection_listener.start()
 store_manager = syncall.RemoteStoreManager(
     network_discovery,
     connection_listener,
-    SHARE_DIR,
+    share_dir_obj,
     uuid
 )
 

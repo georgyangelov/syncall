@@ -18,7 +18,7 @@ class NetworkDiscovery:
     def __init__(self, port, version, uuid):
         self.logger = logging.getLogger(__name__)
 
-		# Store UUID based on the hostname and current time to check
+        # Store UUID based on the hostname and current time to check
         # if the received broadcast packet is from self
         self.uuid = uuid
 
@@ -51,7 +51,7 @@ class NetworkDiscovery:
         if self.__is_self(data):
             return
 
-        self.logger.debug("Received discovery response from {}"
+        self.logger.debug("Received discovery request from {}"
                           .format(data['source']))
 
         self.client_discovered.notify(data['source'])
