@@ -15,6 +15,7 @@ class RemoteStore:
         self.file_manager = syncall.FileManager(self)
 
         self.address = self.messanger.address[0]
+        self.uuid = self.messanger.remote_uuid
 
         self.disconnected = Event()
         self.messanger.disconnected += self.__disconnected
