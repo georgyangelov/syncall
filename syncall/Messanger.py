@@ -72,7 +72,15 @@ class Messanger(Thread):
         self.__unpacker.feed(data)
 
         for packet in self.__unpacker:
-            unpacked_packet = bintools.decode_object(packet)
+            try:
+                unpacked_packet = bintools.decode_object(packet)
+            except Exception as ex:
+                self.logger.error(
+                    "Error trying to decode strings to utf-8 in packet from {}"
+                    .format(self.address[0])
+                )
+                self.logger.exception(ex)
+
             try:
                 self.packet_received.notify(unpacked_packet)
             except Exception as ex:
