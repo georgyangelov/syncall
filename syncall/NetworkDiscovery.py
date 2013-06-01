@@ -54,7 +54,9 @@ class NetworkDiscovery:
         self.logger.debug("Received discovery request from {}"
                           .format(data['source']))
 
-        self.client_discovered.notify(data['source'])
+        del data['server']
+
+        self.client_discovered.notify(data)
 
     def __is_self(self, data):
         return data['data']['uuid'] == self.uuid

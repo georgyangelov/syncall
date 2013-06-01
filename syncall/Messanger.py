@@ -1,6 +1,7 @@
 import msgpack
 import logging
 import socket
+import uuid
 
 import bintools
 
@@ -15,7 +16,7 @@ class Messanger(Thread):
 
     BUFFER_SIZE = 1024
 
-    def __init__(self, socket, address):
+    def __init__(self, socket, address, my_uuid, remote_uuid):
         super().__init__()
         self.daemon = True
 
@@ -27,14 +28,18 @@ class Messanger(Thread):
         self.address = address
         self.socket = socket
 
+        self.my_uuid = my_uuid
+        self.remote_uuid = remote_uuid
+
         self.__unpacker = msgpack.Unpacker()
 
     @staticmethod
-    def connect(address):
+    def connect(address, my_uuid, remote_uuid):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect(address)
+        sock.sendall(uuid.UUID(my_uuid).bytes)
 
-        return Messanger(sock, address)
+        return Messanger(sock, address, my_uuid, remote_uuid)
 
     def disconnect(self):
         try:
@@ -90,10 +95,15 @@ class Messanger(Thread):
 
 
 class ConnectionListener(Thread):
-    def __init__(self, port):
+    UUID_BYTE_LENGTH = 16
+
+    def __init__(self, my_uuid, port):
         super().__init__()
         self.daemon = True
 
+        self.logger = logging.getLogger(__name__)
+
+        self.my_uuid = my_uuid
         self.address = ('', port)
         self.connection_establiashed = Event()
 
@@ -105,6 +115,47 @@ class ConnectionListener(Thread):
         while True:
             client_socket, client_address = serversock.accept()
 
-            self.connection_establiashed(
-                Messanger(client_socket, client_address)
-            )
+            try:
+                # UUID_BYTE_LENGTH bytes with the UUID should be the first
+                # thing on the stream
+
+                uuid_bytes = b''
+                error = False
+
+                while len(uuid_bytes) < self.UUID_BYTE_LENGTH:
+                    new_uuid_bytes = client_socket.recv(
+                        self.UUID_BYTE_LENGTH - len(uuid_bytes)
+                    )
+
+                    if len(new_uuid_bytes) == 0:
+                        error = True
+
+                    uuid_bytes += new_uuid_bytes
+
+                if error:
+                    self.logger.error(
+                        "Remote tried to connect, but the UUID couldn't be "
+                        "transfered properly. Closing connection..."
+                    )
+                    try:
+                        client_socket.close()
+                    except:
+                        pass
+                    continue
+
+                remote_uuid = str(uuid.UUID(bytes=uuid_bytes))
+
+                self.connection_establiashed(
+                    Messanger(
+                        client_socket,
+                        client_address,
+                        self.my_uuid,
+                        remote_uuid
+                    )
+                )
+            except Exception as ex:
+                self.logger.error(
+                    "Exception while accepting connection from {}"
+                    .format(client_address[0])
+                )
+                self.logger.exception(ex)

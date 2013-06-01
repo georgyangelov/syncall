@@ -75,6 +75,7 @@ network_discovery = syncall.NetworkDiscovery(
 network_discovery.start_listening()
 
 connection_listener = syncall.ConnectionListener(
+    uuid,
     syncall.DEFAULT_PORT
 )
 connection_listener.start()

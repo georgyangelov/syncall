@@ -30,18 +30,29 @@ class RemoteStoreManager:
         remote_store.disconnected += self.__client_disconnected
 
         self.remotes[remote_ip] = remote_store
-        self.logger.info("Remote connected from {}".format(remote_ip))
+        self.logger.info(
+            "Remote connected from {}, UUID={}"
+            .format(remote_ip, messanger.remote_uuid)
+        )
 
-    def __client_discovered(self, remote_ip):
+    def __client_discovered(self, data):
+        remote_ip = data['source']
+        remote_uuid = data['data']['uuid']
+
         if remote_ip not in self.remotes:
             messanger = syncall.Messanger.connect(
-                (remote_ip, syncall.DEFAULT_PORT)
+                (remote_ip, syncall.DEFAULT_PORT),
+                self.uuid,
+                remote_uuid
             )
 
             remote_store = syncall.RemoteStore(messanger, self.directory)
 
             self.remotes[remote_ip] = remote_store
-            self.logger.info("Connected to a remote at {}".format(remote_ip))
+            self.logger.info(
+                "Connected to a remote at {}, UUID={}"
+                .format(remote_ip, remote_uuid)
+            )
 
     def __client_disconnected(self, remote):
         self.logger.info("Remote at {} disconnected".format(remote.address))
