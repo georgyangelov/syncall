@@ -1,11 +1,13 @@
 import socket
 import msgpack
 import logging
+import uuid
 
 from socketserver import UDPServer, DatagramRequestHandler
 from threading import Thread
 
 from events import Event
+from bintools import decode_object
 
 
 BROADCAST_ADDRESS = '255.255.255.255'
@@ -16,6 +18,10 @@ class NetworkDiscovery:
 
     def __init__(self, port, version):
         self.logger = logging.getLogger(__name__)
+
+        # Store UUID based on the hostname and current time to check
+        # if the received broadcast packet is from self
+        self.__id = str(uuid.uuid1())
 
         self.client_discovered = Event()
 
@@ -34,13 +40,16 @@ class NetworkDiscovery:
 
     def request(self):
         """ Sends a discovery request to all hosts on the LAN """
-        self.__broadcast({'version': self.version}, self.port)
+        self.__broadcast({
+            'version': self.version,
+            '__id': self.__id
+        }, self.port)
 
     def __broadcast(self, data, port):
         self.socket.sendto(msgpack.packb(data), (BROADCAST_ADDRESS, port))
 
     def __receive_packet(self, data):
-        if self.__is_self(data['source']):
+        if self.__is_self(data):
             return
 
         self.logger.debug("Received discovery response from {}"
@@ -48,10 +57,8 @@ class NetworkDiscovery:
 
         self.client_discovered.notify(data['source'])
 
-    def __is_self(self, address):
-        my_ips = socket.gethostbyname_ex(socket.gethostname())[2]
-
-        return address in my_ips
+    def __is_self(self, data):
+        return data['data']['__id'] == self.__id
 
 
 class BroadcastEventNotifierHandler(DatagramRequestHandler):
@@ -65,7 +72,7 @@ class BroadcastEventNotifierHandler(DatagramRequestHandler):
             self.logger.debug("Received UDP packet from {}"
                               .format(self.client_address[0]))
 
-            data = msgpack.unpackb(self.packet)
+            data = decode_object(msgpack.unpackb(self.packet))
             self.server.packet_received.notify({
                 'data': data,
                 'source': self.client_address[0],
