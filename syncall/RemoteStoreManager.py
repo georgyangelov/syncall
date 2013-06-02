@@ -36,6 +36,8 @@ class RemoteStoreManager:
             .format(remote_ip, messanger.remote_uuid)
         )
 
+        remote_store.start_receiving()
+
     def __client_discovered(self, data):
         remote_ip = data['source']
         remote_uuid = data['data']['uuid']
@@ -54,6 +56,8 @@ class RemoteStoreManager:
                 "Connected to a remote at {}, UUID={}"
                 .format(remote_ip, remote_uuid)
             )
+
+            remote_store.start_receiving()
 
     def __client_disconnected(self, remote):
         self.logger.info(

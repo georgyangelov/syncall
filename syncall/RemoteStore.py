@@ -21,6 +21,7 @@ class RemoteStore:
         self.messanger.disconnected += self.__disconnected
         self.messanger.packet_received += self._packet_received
 
+    def start_receiving(self):
         self.messanger.start_receiving()
         self.messanger.send({'msg': 'Hello world!'})
 
