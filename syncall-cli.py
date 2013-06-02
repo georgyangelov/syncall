@@ -83,8 +83,6 @@ connection_listener.start()
 
 def shutdown():
     """ Stop the listener threads and remote connections on shutdown """
-
-    print("Stopping threads and cleaning up listeners...")
     network_discovery.shutdown()
     connection_listener.shutdown()
     store_manager.shutdown()
@@ -100,6 +98,20 @@ try:
             continue
         elif cmd.lower() == 'scan':
             network_discovery.request()
+        elif cmd.lower() == 'index':
+            share_dir_obj.update_index()
+
+            print(share_dir_obj._index)
+            print(
+                "Total number of files: {}"
+                .format(len(share_dir_obj._index))
+            )
+        elif cmd.lower() == 'showindex':
+            print(share_dir_obj._index)
+            print(
+                "Total number of files: {}"
+                .format(len(share_dir_obj._index))
+            )
         else:
             print("Unknown command '" + cmd + "'")
 finally:
