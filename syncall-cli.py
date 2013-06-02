@@ -49,14 +49,6 @@ logging.Logger.console = log_console
 
 # End logging config
 
-# module_manager = ModuleManager([CURRENT_DIR + '/modules'])
-# module_manager.load_all()
-
-# module_manager.event_manager.notify('app_start', {
-#     'cwd': CURRENT_DIR,
-#     'modules': module_manager.get_modules()
-# })
-
 CONFIG_DIR = os.environ['HOME'] + '/.syncall'
 SHARE_DIR = CONFIG_DIR + '/shared/'
 
@@ -78,7 +70,6 @@ connection_listener = syncall.ConnectionListener(
     uuid,
     syncall.DEFAULT_PORT
 )
-connection_listener.start()
 
 store_manager = syncall.RemoteStoreManager(
     network_discovery,
@@ -87,20 +78,29 @@ store_manager = syncall.RemoteStoreManager(
     uuid
 )
 
-while True:
-    cmd = input()
+connection_listener.start()
 
-    if cmd.lower() in ('exit', 'quit', 'x', 'q'):
-        break
-    elif len(cmd) == 0:
-        continue
-    elif cmd.lower() == 'scan':
-        network_discovery.request()
-    else:
-        print("Unknown command '" + cmd + "'")
-#         is_not_handled = module_manager.event_manager.notify('app_cmd', {
-#             'cmd': cmd
-#         })
 
-#         if is_not_handled:
-#             print("Unknown command '" + cmd + "'")
+def shutdown():
+    """ Stop the listener threads and remote connections on shutdown """
+
+    print("Stopping threads and cleaning up listeners...")
+    network_discovery.shutdown()
+    connection_listener.shutdown()
+    store_manager.shutdown()
+
+
+try:
+    while True:
+        cmd = input()
+
+        if cmd.lower() in ('exit', 'quit', 'x', 'q'):
+            break
+        elif len(cmd) == 0:
+            continue
+        elif cmd.lower() == 'scan':
+            network_discovery.request()
+        else:
+            print("Unknown command '" + cmd + "'")
+finally:
+    shutdown()

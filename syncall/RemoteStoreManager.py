@@ -20,6 +20,12 @@ class RemoteStoreManager:
         self.network_discovery.client_discovered += self.__client_discovered
         self.network_discovery.request()
 
+    def shutdown(self):
+        # This will trigger their diconnected event and will remove them
+        # from the remotes dictionary
+        for remote in self.remotes.values():
+            remote.disconnect()
+
     def __client_connected(self, messanger):
         remote_ip = messanger.address[0]
         remote_uuid = messanger.remote_uuid

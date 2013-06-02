@@ -107,13 +107,16 @@ class ConnectionListener(Thread):
         self.address = ('', port)
         self.connection_establiashed = Event()
 
+    def shutdown(self):
+        self.serversock.close()
+
     def run(self):
-        serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        serversock.bind(self.address)
-        serversock.listen(5)
+        self.serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.serversock.bind(self.address)
+        self.serversock.listen(5)
 
         while True:
-            client_socket, client_address = serversock.accept()
+            client_socket, client_address = self.serversock.accept()
 
             try:
                 # UUID_BYTE_LENGTH bytes with the UUID should be the first

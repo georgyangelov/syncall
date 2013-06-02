@@ -37,6 +37,9 @@ class NetworkDiscovery:
     def start_listening(self):
         self.listener.start()
 
+    def shutdown(self):
+        self.listener.shutdown()
+
     def request(self):
         """ Sends a discovery request to all hosts on the LAN """
         self.__broadcast({
