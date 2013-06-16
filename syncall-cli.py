@@ -52,12 +52,12 @@ logging.Logger.console = log_console
 CONFIG_DIR = os.environ['HOME'] + '/.syncall'
 SHARE_DIR = CONFIG_DIR + '/shared/'
 
-share_dir_obj = syncall.Directory(SHARE_DIR)
-
 os.makedirs(CONFIG_DIR, exist_ok=True)
 os.makedirs(SHARE_DIR, exist_ok=True)
 
 uuid = syncall.get_uuid(CONFIG_DIR + '/.uuid')
+
+share_dir_obj = syncall.Directory(uuid, SHARE_DIR)
 
 network_discovery = syncall.NetworkDiscovery(
     syncall.DEFAULT_PORT,

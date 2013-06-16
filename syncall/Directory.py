@@ -13,9 +13,10 @@ class Directory:
     Listens for file system changes in specific directory and applies
     changes from different sources.
     """
-    def __init__(self, dir_path, index_name='.syncall_index'):
+    def __init__(self, uuid, dir_path, index_name='.syncall_index'):
         self.logger = logging.getLogger(__name__)
 
+        self.uuid = uuid
         self.dir_path = dir_path
         self.index_name = index_name
         self.index_path = os.path.join(self.dir_path, self.index_name)
@@ -55,32 +56,46 @@ class Directory:
             <file_name> ::= file path relative to directory top
             <file_info> ::= {
                 'sync_log': {
-                    <remote_uuid in UTF>: <remote_sync_info>,
+                    <remote_uuid (as string)>: <timestamp>,
                     ...
                 },
-                'last_update': <datetime in unix timestamp (seconds)>,
+                'last_update_location': <remote_uuid (or the local UUID) (str)>
+                'last_update': <timestamp>,
                 'hash': <md5 byte-string>,
                 [optional 'deleted': (True|False)]
             }
-            <remote_sync_info> ::= {
-                'last_update': <datetime in unix timestamp>,
-                'hash': <md5 byte-string>
-            }
+            <timestamp> ::= Datetime in unix timestamp (seconds).
+                            Depends on the os time on the system on which
+                            the change happened.
         """
         with self.fs_access_lock:
             for dirpath, dirnames, filenames in os.walk(self.dir_path):
                 for name in filenames:
                     file_path = pathext.normalize(os.path.join(dirpath, name))
-                    self._update_index_file(file_path)
+                    self._update_file_index(file_path)
 
             self.save_index()
 
-    def _update_index_file(self, file_path):
+    def _update_file_index(self, file_path):
         relative_path = os.path.relpath(file_path, self.dir_path)
         file_data = self._index.setdefault(relative_path, dict())
 
-        file_data['last_update'] = int(os.path.getmtime(file_path))
-        file_data['hash'] = hash_file(file_path)
+        if not file_data:
+            # New file
+            file_hash = hash_file(file_path)
+            file_data['last_update'] = int(os.path.getmtime(file_path))
+            file_data['hash'] = file_hash
+            file_data['last_update_location'] = self.uuid
+
+        elif file_data['last_update'] > int(os.path.getmtime(file_path)):
+            # Check if file is actually changed or the system time is off
+            file_hash = hash_file(file_path)
+
+            if file_data['hash'] != file_hash:
+                # File modified locally (since last sync)
+                file_data['last_update'] = int(os.path.getmtime(file_path))
+                file_data['hash'] = file_hash
+                file_data['last_update_location'] = self.uuid
 
         if 'deleted' in file_data:
             del file_data['deleted']
