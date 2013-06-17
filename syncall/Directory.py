@@ -18,7 +18,8 @@ class Directory:
     NOT_MODIFIED = 0
     NEEDS_UPDATE = 1
 
-    def __init__(self, uuid, dir_path, index_name='.syncall_index'):
+    def __init__(self, uuid, dir_path, index_name='.syncall_index',
+                 load_index=True):
         self.logger = logging.getLogger(__name__)
 
         self.uuid = uuid
@@ -28,9 +29,10 @@ class Directory:
 
         self.fs_access_lock = threading.Lock()
 
-        self._load_index()
+        if load_index:
+            self.load_index()
 
-    def _load_index(self):
+    def load_index(self):
         with self.fs_access_lock:
             if os.path.isfile(self.index_path):
                 with open(self.index_path, 'rb') as index_file:
@@ -93,6 +95,9 @@ class Directory:
             file_data['hash'] = file_hash
             file_data['last_update_location'] = self.uuid
 
+            sync_log = file_data.setdefault('sync_log', dict())
+            sync_log[self.uuid] = file_data['last_update']
+
         elif int(os.path.getmtime(file_path)) > file_data['last_update']:
             # Check if file is actually changed or the system time is off
             file_hash = hash_file(file_path)
@@ -103,13 +108,16 @@ class Directory:
                 file_data['hash'] = file_hash
                 file_data['last_update_location'] = self.uuid
 
+                sync_log = file_data.setdefault('sync_log', dict())
+                sync_log[self.uuid] = file_data['last_update']
+
         if 'deleted' in file_data:
             del file_data['deleted']
 
-    def get_changes(self, remote_index):
+    def diff(self, remote_index):
         """
-        Return (modified_files, deleted_files, conflicted_files) where
-        modified_files, deleted_files and conflicted_files are sets of file
+        Return (updates, deletes, conflicts) where
+        updates, deletes and conflicts are sets of file
         names of files that need to be changed on the remote store.
 
         Files that need to be transferred from the remote store to the
@@ -120,24 +128,25 @@ class Directory:
 
         TODO: Support deleted files detection
         """
-        modified_files = set()
-        deleted_files = set()
-        conflicted_files = set()
+        updates = set()
+        deletes = set()
+        conflicts = set()
 
-        for (file, file_data) in self._index:
+        for (file, file_data) in self._index.items():
             sync_status = Directory._compare_file(
                 file_data,
                 remote_index.get(file, None)
             )
 
-            if sync_status == NEEDS_UPDATE:
-                modified_files.add(file)
-            elif sync_status == CONFLICT:
-                conflicted_files.add(file)
+            if sync_status == self.NEEDS_UPDATE:
+                updates.add(file)
+            elif sync_status == self.CONFLICT:
+                conflicts.add(file)
 
-        return (modified_files, deleted_files, conflicted_files)
+        return (updates, deletes, conflicts)
 
-    def _compare_file(self, local, remote):
+    @staticmethod
+    def _compare_file(local, remote):
         """
         Compare two files by their index data. remote can be None if remote
         data is not present.
@@ -147,19 +156,19 @@ class Directory:
         """
         if remote is None:
             if 'deleted' not in local or not local['deleted']:
-                return NEEDS_UPDATE
+                return Directory.NEEDS_UPDATE
 
         if (local['last_update_location'] in remote['sync_log'] and
                 local['last_update'] <=
                 remote['sync_log'][local['last_update_location']]):
             # File on remote is either the same or derived from this one
-            return NOT_MODIFIED
+            return Directory.NOT_MODIFIED
 
         elif (remote['last_update_location'] in local['sync_log'] and
                 remote['last_update'] <=
                 local['sync_log'][remote['last_update_location']]):
             # File needs to be transferred to remote
-            return NEEDS_UPDATE
+            return Directory.NEEDS_UPDATE
 
         # Files are in conflict
-        return CONFLICT
+        return Directory.CONFLICT
