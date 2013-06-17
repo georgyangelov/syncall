@@ -17,4 +17,6 @@ if __name__ == '__main__':
     from tests.events import *
     from tests.bintools import *
 
+    from syncall_tests import *
+
     unittest.main()

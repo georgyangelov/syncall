@@ -1,0 +1,1 @@
+These are files used to test the file indexing.

@@ -51,7 +51,7 @@ class Directory:
         with open(self.index_path, 'wb') as index_file:
             index_file.write(index)
 
-    def update_index(self):
+    def update_index(self, save_index=True):
         """
         The index structure is:
             <index> ::= {
@@ -79,7 +79,8 @@ class Directory:
                     file_path = pathext.normalize(os.path.join(dirpath, name))
                     self._update_file_index(file_path)
 
-            self.save_index()
+            if save_index:
+                self.save_index()
 
     def _update_file_index(self, file_path):
         relative_path = os.path.relpath(file_path, self.dir_path)
@@ -92,7 +93,7 @@ class Directory:
             file_data['hash'] = file_hash
             file_data['last_update_location'] = self.uuid
 
-        elif file_data['last_update'] > int(os.path.getmtime(file_path)):
+        elif int(os.path.getmtime(file_path)) > file_data['last_update']:
             # Check if file is actually changed or the system time is off
             file_hash = hash_file(file_path)
 
