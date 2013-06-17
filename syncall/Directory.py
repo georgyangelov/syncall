@@ -148,15 +148,15 @@ class Directory:
             if 'deleted' not in local or not local['deleted']:
                 return NEEDS_UPDATE
 
-        if local['last_update_location'] in remote['sync_log'] and
-        local['last_update'] <=
-        remote['sync_log'][local['last_update_location']]:
+        if (local['last_update_location'] in remote['sync_log'] and
+                local['last_update'] <=
+                remote['sync_log'][local['last_update_location']]):
             # File on remote is either the same or derived from this one
             return NOT_MODIFIED
 
-        elif remote['last_update_location'] in local['sync_log'] and
-        remote['last_update'] <=
-        local['sync_log'][remote['last_update_location']]:
+        elif (remote['last_update_location'] in local['sync_log'] and
+                remote['last_update'] <=
+                local['sync_log'][remote['last_update_location']]):
             # File needs to be transferred to remote
             return NEEDS_UPDATE
 
