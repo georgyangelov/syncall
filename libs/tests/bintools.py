@@ -20,7 +20,8 @@ class BintoolsTests(unittest.TestCase):
                 "value_two".encode('utf-8'),
                 (
                     "value_one".encode('utf-8'),
-                    "value_two".encode('utf-8')
+                    "value_two".encode('utf-8'),
+                    bintools
                 ),
                 {
                     "no_decode_key_one".encode('utf-8'): (
@@ -45,7 +46,8 @@ class BintoolsTests(unittest.TestCase):
                 "value_two",
                 (
                     "value_one",
-                    "value_two"
+                    "value_two",
+                    bintools
                 ),
                 {
                     "no_decode_key_one": (

@@ -18,6 +18,21 @@ class EventTests(unittest.TestCase):
 
         self.assertEqual(calls, [None, None])
 
+    def test_proxy_event(self):
+        calls = []
+
+        def handler(data):
+            calls.append(data)
+
+        event = events.Event()
+        proxy = events.Event(proxy_for=event)
+
+        proxy += handler
+
+        event.notify('test')
+
+        self.assertEqual(calls, ['test'])
+
     def test_event_with_data(self):
         calls = []
 
@@ -53,6 +68,25 @@ class EventTests(unittest.TestCase):
         event.notify()
 
         self.assertEqual(calls, {"one", "two"})
+
+    def test_remove_handler(self):
+        calls = set()
+
+        def handler_one(data):
+            calls.add("one")
+
+        def handler_two(data):
+            calls.add("two")
+
+        event = events.Event()
+        event += handler_one
+        event += handler_two
+
+        event -= handler_one
+
+        event.notify()
+
+        self.assertEqual(calls, {'two'})
 
     def test_clear_handlers(self):
         calls = set()

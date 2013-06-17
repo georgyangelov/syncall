@@ -3,7 +3,7 @@ class Event:
         self.handlers = set()
 
         if proxy_for is not None:
-            proxy_for += notify
+            proxy_for += self.notify
 
     def __iadd__(self, callable):
         self.handlers.add(callable)
