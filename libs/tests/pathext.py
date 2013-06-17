@@ -95,3 +95,8 @@ class PathextTests(unittest.TestCase):
             pathext.is_direct_child('/devel', '/dev/python'),
             pathext.is_direct_child('/dev/py', '/dev/python'),
         )
+
+    def test_str_compare(self):
+        self.assertTrue(pathext.str_compare('/dev/python', '///dev\\python/'))
+        self.assertTrue(pathext.str_compare('\\dev/python', '///dev\\python/'))
+        self.assertTrue(pathext.str_compare('/', '\\'))

@@ -87,10 +87,3 @@ def is_direct_child(path, subpath):
             return False
 
     return True
-
-
-def get_module_path(module):
-    if hasattr(module, '__path__'):
-        return os.path.realpath(module.__path__[0])
-    else:
-        return os.path.realpath(module.__file__)
