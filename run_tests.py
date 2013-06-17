@@ -15,5 +15,6 @@ if __name__ == '__main__':
     from tests.decorator_utils import *
     from tests.pathext import *
     from tests.fsdiff import *
+    from tests.events import *
 
     unittest.main()
