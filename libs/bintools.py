@@ -22,7 +22,7 @@ def decode_object(obj, encoding='utf-8', except_keys=tuple()):
         res = []
 
         for value in obj:
-            res.append(decode_utf_object(value, except_keys))
+            res.append(decode_object(value, encoding, except_keys))
 
         if isinstance(obj, tuple):
             res = tuple(res)
