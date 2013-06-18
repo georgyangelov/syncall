@@ -95,7 +95,7 @@ class BroadcastListener(UDPServer, Thread):
     def __init__(self, port):
         UDPServer.__init__(self, ('', port), BroadcastEventNotifierHandler)
         Thread.__init__(self)
-        self.daemon = True
+        # self.daemon = True
 
         self.packet_received = Event()
         self.packet_received_error = Event()

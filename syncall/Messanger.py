@@ -14,11 +14,12 @@ from events import Event
 class Messanger(Thread):
     """ Delivers and receives packets to/from remote instances using TCP. """
 
-    BUFFER_SIZE = 1024
+    BUFFER_SIZE = 1024 * 1024
+    CONNECT_TIMEOUT = 5
 
     def __init__(self, socket, address, my_uuid, remote_uuid):
         super().__init__()
-        self.daemon = True
+        # self.daemon = True
 
         self.logger = logging.getLogger(__name__)
 
@@ -36,14 +37,17 @@ class Messanger(Thread):
     @staticmethod
     def connect(address, my_uuid, remote_uuid):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        sock.settimeout(Messanger.CONNECT_TIMEOUT)
         sock.connect(address)
         sock.sendall(uuid.UUID(my_uuid).bytes)
+        sock.settimeout(None)
 
         return Messanger(sock, address, my_uuid, remote_uuid)
 
     def disconnect(self):
         try:
-            self.socket.close()
+            self.socket.shutdown(socket.SHUT_RDWR)
         except:
             pass
 
@@ -55,7 +59,7 @@ class Messanger(Thread):
             while True:
                 try:
                     data = self.socket.recv(self.BUFFER_SIZE)
-                except ConnectionResetError:
+                except:
                     break
 
                 if not data:
@@ -78,20 +82,23 @@ class Messanger(Thread):
 
         for packet in self.__unpacker:
             try:
-                unpacked_packet = bintools.decode_object(packet)
+                unpacked_packet = bintools.decode_object(
+                    packet,
+                    except_keys=('hash',)
+                )
             except Exception as ex:
                 self.logger.error(
                     "Error trying to decode strings to utf-8 in packet from {}"
                     .format(self.address[0])
                 )
                 self.logger.exception(ex)
-
-            try:
-                self.packet_received.notify(unpacked_packet)
-            except Exception as ex:
-                self.logger.error("Error processing packet from {}"
-                                  .format(self.address[0]))
-                self.logger.exception(ex)
+            else:
+                try:
+                    self.packet_received.notify(unpacked_packet)
+                except Exception as ex:
+                    self.logger.error("Error processing packet from {}"
+                                      .format(self.address[0]))
+                    self.logger.exception(ex)
 
 
 class ConnectionListener(Thread):
@@ -99,7 +106,7 @@ class ConnectionListener(Thread):
 
     def __init__(self, my_uuid, port):
         super().__init__()
-        self.daemon = True
+        # self.daemon = True
 
         self.logger = logging.getLogger(__name__)
 
@@ -114,9 +121,15 @@ class ConnectionListener(Thread):
         self.serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serversock.bind(self.address)
         self.serversock.listen(5)
+        self.serversock.settimeout(1)
 
         while True:
-            client_socket, client_address = self.serversock.accept()
+            try:
+                client_socket, client_address = self.serversock.accept()
+            except socket.timeout:
+                continue
+            except:
+                break
 
             try:
                 # UUID_BYTE_LENGTH bytes with the UUID should be the first

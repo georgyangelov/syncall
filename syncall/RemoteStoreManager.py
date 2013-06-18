@@ -49,11 +49,18 @@ class RemoteStoreManager:
         remote_uuid = data['data']['uuid']
 
         if remote_uuid not in self.remotes:
-            messanger = syncall.Messanger.connect(
-                (remote_ip, syncall.DEFAULT_PORT),
-                self.uuid,
-                remote_uuid
-            )
+            try:
+                messanger = syncall.Messanger.connect(
+                    (remote_ip, syncall.DEFAULT_PORT),
+                    self.uuid,
+                    remote_uuid
+                )
+            except Exception as ex:
+                logger = logging.getLogger(__name__)
+                logger.error("Couldn't connect to {}".format(address[0]))
+                logger.exception(ex)
+
+                return
 
             remote_store = syncall.RemoteStore(messanger, self.directory)
 
