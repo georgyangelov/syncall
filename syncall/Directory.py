@@ -8,15 +8,16 @@ import bintools
 from bintools import hash_file
 
 
+CONFLICT = -1
+NOT_MODIFIED = 0
+NEEDS_UPDATE = 1
+
+
 class Directory:
     """
     Listens for file system changes in specific directory and applies
     changes from different sources.
     """
-
-    CONFLICT = -1
-    NOT_MODIFIED = 0
-    NEEDS_UPDATE = 1
 
     def __init__(self, uuid, dir_path, index_name='.syncall_index',
                  load_index=True):
@@ -115,6 +116,12 @@ class Directory:
             del file_data['deleted']
 
     def diff(self, remote_index):
+        return IndexDiff.diff(self._index, remote_index)
+
+
+class IndexDiff:
+    @staticmethod
+    def diff(local, remote):
         """
         Return (updates, deletes, conflicts) where
         updates, deletes and conflicts are sets of file
@@ -132,15 +139,15 @@ class Directory:
         deletes = set()
         conflicts = set()
 
-        for (file, file_data) in self._index.items():
-            sync_status = Directory._compare_file(
+        for (file, file_data) in local.items():
+            sync_status = IndexDiff._compare_file(
                 file_data,
-                remote_index.get(file, None)
+                remote.get(file, None)
             )
 
-            if sync_status == self.NEEDS_UPDATE:
+            if sync_status == NEEDS_UPDATE:
                 updates.add(file)
-            elif sync_status == self.CONFLICT:
+            elif sync_status == CONFLICT:
                 conflicts.add(file)
 
         return (updates, deletes, conflicts)
@@ -156,19 +163,19 @@ class Directory:
         """
         if remote is None:
             if 'deleted' not in local or not local['deleted']:
-                return Directory.NEEDS_UPDATE
+                return NEEDS_UPDATE
 
         if (local['last_update_location'] in remote['sync_log'] and
                 local['last_update'] <=
                 remote['sync_log'][local['last_update_location']]):
             # File on remote is either the same or derived from this one
-            return Directory.NOT_MODIFIED
+            return NOT_MODIFIED
 
         elif (remote['last_update_location'] in local['sync_log'] and
                 remote['last_update'] <=
                 local['sync_log'][remote['last_update_location']]):
             # File needs to be transferred to remote
-            return Directory.NEEDS_UPDATE
+            return NEEDS_UPDATE
 
         # Files are in conflict
-        return Directory.CONFLICT
+        return CONFLICT
