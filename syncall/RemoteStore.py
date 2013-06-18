@@ -57,8 +57,7 @@ class RemoteStore:
 
         if packet['type'] == MSG_INDEX:
             self.remote_index = packet['index']
-
-            self.logger.debug("{}'s index updated".format(self.address))
+            self.__index_updated()
 
         else:
             self.logger.error("Unknown packet from {}: {}".format(
@@ -66,10 +65,10 @@ class RemoteStore:
                 packet['type']
             ))
 
-    def sync_dir(self):
-        """ Syncronizes local and remote directory. """
-        pass
+    def __index_updated(self):
+        self.logger.debug("{}'s index updated".format(self.address))
 
-    def sync_file(self):
-        """ Syncronizes a single file to the remote """
-        pass
+        diff = self.directory.diff(self.remote_index)
+
+        # TODO: Handle deleted and conflicted files
+        self.file_manager.sync_files(diff[0])
