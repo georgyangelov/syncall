@@ -62,6 +62,37 @@ class IndexDiffTests(unittest.TestCase):
         diffBA = self.dirB.diff(self.dirA._index)
         self.assertDiff(diffBA, {'dir/file1'}, set(), set())
 
+    def test_modified_file_common_history(self):
+        self.dirA._index = {
+            'dir/file1': {
+                'last_update': 5,
+                'last_update_location': 'C',
+                'hash': 'C5',
+                'sync_log': {
+                    'A': 1,
+                    'C': 5
+                }
+            }
+        }
+        self.dirB._index = {
+            'dir/file1': {
+                'last_update': 10,
+                'last_update_location': 'B',
+                'hash': 'B10',
+                'sync_log': {
+                    'A': 1,
+                    'C': 5,
+                    'B': 10
+                }
+            }
+        }
+
+        diffAB = self.dirA.diff(self.dirB._index)
+        self.assertDiff(diffAB, set(), set(), set())
+
+        diffBA = self.dirB.diff(self.dirA._index)
+        self.assertDiff(diffBA, {'dir/file1'}, set(), set())
+
     def test_conflict_simple(self):
         self.dirA._index = {
             'dir/file1': {
