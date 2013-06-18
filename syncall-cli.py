@@ -9,8 +9,6 @@ sys.path.append(CURRENT_DIR + '/libs')
 import syncall
 
 
-from pymodules import ModuleManager
-
 # Setup logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
