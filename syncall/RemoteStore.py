@@ -57,7 +57,7 @@ class RemoteStore:
 
         if packet['type'] == MSG_INDEX:
             self.remote_index = packet['index']
-            self.__index_updated()
+            self.__remote_index_updated()
 
         else:
             self.logger.error("Unknown packet from {}: {}".format(
@@ -65,7 +65,7 @@ class RemoteStore:
                 packet['type']
             ))
 
-    def __index_updated(self):
+    def __remote_index_updated(self):
         self.logger.debug("{}'s index updated".format(self.address))
 
         diff = self.directory.diff(self.remote_index)
