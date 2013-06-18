@@ -26,13 +26,15 @@ class NetworkDiscovery:
 
         self.port = port
         self.version = version
+        self.__init_network_objects()
+
+    def __init_network_objects(self):
         self.listener = BroadcastListener(self.port)
+        self.listener.packet_received += self.__receive_packet
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-        self.listener.packet_received += self.__receive_packet
 
     def start_listening(self):
         self.listener.start()
