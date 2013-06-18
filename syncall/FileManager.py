@@ -9,6 +9,9 @@ class FileManager:
     def send_file(self, file):
         pass
 
+    def stop_transfers(self):
+        pass
+
 
 class FileTransfer(Thread):
     def __init__(self):
