@@ -48,6 +48,9 @@ class Directory:
             else:
                 self._index = dict()
 
+    def get_index(self):
+        return self._index
+
     def save_index(self):
         index = msgpack.packb(self._index)
 
@@ -56,6 +59,10 @@ class Directory:
 
     def update_index(self, save_index=True):
         """
+        Update self._index (use the get_index() method) to get it.
+
+        Return True if index changed, False otherwise.
+
         The index structure is:
             <index> ::= {
                 <file_name>: <file_info>,
