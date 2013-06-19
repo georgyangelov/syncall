@@ -15,7 +15,7 @@ class RemoteStore:
 
         self.messanger = messanger
         self.directory = directory
-        self.file_manager = syncall.FileManager(self)
+        self.transfer_manager = syncall.TransferManager(self)
 
         self.remote_index = None
 
@@ -25,6 +25,10 @@ class RemoteStore:
         self.disconnected = Event()
         self.messanger.disconnected += self.__disconnected
         self.messanger.packet_received += self._packet_received
+
+    def request_transfer(self, transfer_messanger):
+        # Pass the transfer request to the transfer manager
+        self.transfer_manager.process_transfer(transfer_manager)
 
     def index_received(self):
         return self.remote_index is not None
@@ -39,7 +43,7 @@ class RemoteStore:
 
     def __disconnected(self, no_data):
         self.disconnected.notify(self)
-        self.file_manager.stop_transfers()
+        self.transfer_manager.stop_transfers()
 
     def disconnect(self):
         self.messanger.disconnect()
@@ -71,4 +75,4 @@ class RemoteStore:
         diff = self.directory.diff(self.remote_index)
 
         # TODO: Handle deleted and conflicted files
-        self.file_manager.sync_files(diff[0])
+        self.transfer_manager.sync_files(diff[0])

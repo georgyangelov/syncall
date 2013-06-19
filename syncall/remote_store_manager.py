@@ -6,7 +6,8 @@ import syncall
 class RemoteStoreManager:
     """ Manages multiple remotes """
 
-    def __init__(self, network_discovery, connection_listener, directory, id):
+    def __init__(self, network_discovery, connection_listener,
+                 transfer_listener, directory, id):
         self.logger = logging.getLogger(__name__)
         self.remotes = dict()
 
@@ -15,6 +16,9 @@ class RemoteStoreManager:
 
         self.connection_listener = connection_listener
         connection_listener.connection_establiashed += self.__client_connected
+
+        self.transfer_listener = transfer_listener
+        transfer_listener.connection_establiashed += self.__transfer_initiated
 
         self.network_discovery = network_discovery
         self.network_discovery.client_discovered += self.__client_discovered
@@ -25,6 +29,22 @@ class RemoteStoreManager:
         # from the remotes dictionary
         for remote in self.remotes.values():
             remote.disconnect()
+
+    def __transfer_initiated(self, transfer_messanger):
+        # Accept the transfer connection and pass it to the
+        # appropriate remote store
+        remote_uuid = transfer_messanger.remote_uuid
+
+        if remote_uuid not in self.remotes:
+            # Transfer request from an unknown remote
+            self.logger.debug(
+                "Transfer request from an unknown remote at {}, UUID={}"
+                .format(transfer_messanger.address[0], remote_uuid)
+            )
+            transfer_messanger.disconnect()
+            return
+
+        self.remotes[remote_uuid].request_transfer(transfer_messanger)
 
     def __client_connected(self, messanger):
         remote_ip = messanger.address[0]

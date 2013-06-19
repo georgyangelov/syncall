@@ -1,9 +1,8 @@
 import logging
+import threading
 
-from threading import Thread
 
-
-class FileManager:
+class TransferManager:
     def __init__(self, remote):
         self.logger = logging.getLogger(__name__)
 
@@ -13,6 +12,21 @@ class FileManager:
         self.transfers_lock = threading.Lock()
 
         self.transfers = dict()
+
+    def process_transfer(self, messanger):
+        with self.transfers_lock:
+            # Verify the request is legit, wrap it in a FileTransfer object
+            # and make sure it's tracked
+            if self.remote.address != messanger.address[0]:
+                # Someone's trying to impersonate a remote?!?
+                self.logger.debug(
+                    "Transfer initiated from a non-expected address: {}"
+                    .format(messanger.address[0])
+                )
+                messanger.disconnect()
+                return
+
+            # TODO
 
     def sync_file(self, file, lock=True):
         with self.transfers_lock:
@@ -44,7 +58,7 @@ class FileManager:
             self.transfers.clear()
 
 
-class FileTransfer(Thread):
+class FileTransfer(threading.Thread):
     def __init__(self, file_data):
         super().__init__()
 
@@ -55,14 +69,4 @@ class FileTransfer(Thread):
 
     def run(self):
         # Transfer a file to the remote end
-        pass
-
-
-class FileTransferListener(Thread):
-    def __init__(self, remote):
-        super().__init__()
-
-        self.remote = remote
-
-    def run(self):
         pass
