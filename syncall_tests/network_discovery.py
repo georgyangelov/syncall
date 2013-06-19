@@ -4,7 +4,7 @@ from unittest.mock import Mock
 from events import Event
 
 import syncall
-from syncall.NetworkDiscovery import BroadcastEventNotifierHandler
+from syncall.network_discovery import BroadcastEventNotifierHandler
 
 
 class NetworkDiscoveryTests(unittest.TestCase):
