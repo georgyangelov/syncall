@@ -58,7 +58,7 @@ class TransferManager:
             self.transfers.clear()
 
 
-class FileTransfer(threading.Thread):
+class FileTransfer:
     def __init__(self, file_data):
         super().__init__()
 
@@ -67,6 +67,6 @@ class FileTransfer(threading.Thread):
     def shutdown(self):
         pass
 
-    def run(self):
+    def start(self):
         # Transfer a file to the remote end
         pass

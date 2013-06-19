@@ -68,10 +68,15 @@ connection_listener = syncall.ConnectionListener(
     uuid,
     syncall.DEFAULT_PORT
 )
+transfer_listener = syncall.ConnectionListener(
+    uuid,
+    syncall.DEFAULT_TRANSFER_PORT
+)
 
 store_manager = syncall.RemoteStoreManager(
     network_discovery,
     connection_listener,
+    transfer_listener,
     share_dir_obj,
     uuid
 )
