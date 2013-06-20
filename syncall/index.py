@@ -19,29 +19,75 @@ class Directory:
     """
 
     def __init__(self, uuid, dir_path, index_name='.syncall_index',
-                 load_index=True):
+                 load_index=True, temp_dir_name='.syncall_temp'):
         self.logger = logging.getLogger(__name__)
 
         self.uuid = uuid
         self.dir_path = dir_path
         self.index_name = index_name
         self.index_path = os.path.join(self.dir_path, self.index_name)
+        self.temp_dir = os.path.join(self.dir_path, temp_dir_name)
+
+        if not os.path.exists(self.temp_dir):
+            os.mkdir(self.temp_dir)
 
         self.fs_access_lock = threading.Lock()
+        self.temp_dir_lock = threading.Lock()
+
+        self.temp_files = set()
 
         if load_index:
             self.load_index()
 
+    def get_temp_path(self, proposed_name):
+        """
+        Return a path to a temp file that can be written to.
+        Use `proposed_name` if it's available or modify it so it is.
+        """
+        name = proposed_name
+        file_suffix = 0
+
+        with self.temp_dir_lock:
+            while os.path.isfile(os.path.join(self.temp_dir, name)):
+                file_suffix += 1
+                name = "{}-{}".format(proposed_name, file_suffix)
+
+            file_path = os.path.join(self.temp_dir, name)
+
+            # Create the file to avoid possible race conditions
+            # after the with block
+            with open(file_path, 'a+'):
+                pass
+
+            self.temp_files.add(file_path)
+
+        return file_path
+
+    def release_temp_file(self, path):
+        """
+        Remove a temp file created using `get_temp_path`.
+        """
+        if path in self.temp_files and os.path.isfile(path):
+            os.remove(path)
+
+    def clear_temp_dir(self):
+        for path in self.temp_files:
+            if os.path.isfile(path):
+                os.remove(path)
+
     def get_file_path(self, file_name):
         return os.path.join(self.dir_path, file_name)
 
-    def get_block_checksums(self, file_name):
+    def get_block_checksums(self, file_name, block_size):
         with self.fs_access_lock:
             if file_name not in self._index:
-                raise ValueError('File {} not in index.'.format(file_name))
+                return []
 
-            with open(self.get_file_path(file_name)) as file:
-                block_checksums = list(pyrsync2.blockchecksums(file))
+            with open(self.get_file_path(file_name), 'rb') as file:
+                block_checksums = list(pyrsync2.blockchecksums(
+                    file,
+                    blocksize=block_size
+                ))
 
         return block_checksums
 

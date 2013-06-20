@@ -56,6 +56,7 @@ os.makedirs(SHARE_DIR, exist_ok=True)
 uuid = syncall.get_uuid(CONFIG_DIR + '/.uuid')
 
 share_dir_obj = syncall.Directory(uuid, SHARE_DIR)
+share_dir_obj.update_index()
 
 network_discovery = syncall.NetworkDiscovery(
     syncall.DEFAULT_PORT,
@@ -82,13 +83,16 @@ store_manager = syncall.RemoteStoreManager(
 )
 
 connection_listener.start()
+transfer_listener.start()
 
 
 def shutdown():
     """ Stop the listener threads and remote connections on shutdown """
     network_discovery.shutdown()
     connection_listener.shutdown()
+    transfer_listener.shutdown()
     store_manager.shutdown()
+    share_dir_obj.clear_temp_dir()
 
 
 try:

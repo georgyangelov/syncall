@@ -75,7 +75,14 @@ class Messanger(Thread):
     def send(self, data):
         packet = msgpack.packb(data)
 
-        self.socket.send(packet)
+        try:
+            self.socket.send(packet)
+        except Exception as ex:
+            self.logger.error(
+                "Couldn't send data to {}"
+                .format(self.address[0])
+            )
+            self.disconnect()
 
     def __handle_received_data(self, data):
         self.__unpacker.feed(data)
@@ -84,7 +91,7 @@ class Messanger(Thread):
             try:
                 unpacked_packet = bintools.decode_object(
                     packet,
-                    except_keys=('hash',)
+                    except_keys=('hash', 'binary_data')
                 )
             except Exception as ex:
                 self.logger.error(

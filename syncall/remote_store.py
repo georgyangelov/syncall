@@ -20,6 +20,7 @@ class RemoteStore:
         self.remote_index = None
 
         self.address = self.messanger.address[0]
+        self.my_uuid = self.messanger.my_uuid
         self.uuid = self.messanger.remote_uuid
 
         self.disconnected = Event()
@@ -28,7 +29,7 @@ class RemoteStore:
 
     def request_transfer(self, transfer_messanger):
         # Pass the transfer request to the transfer manager
-        self.transfer_manager.process_transfer(transfer_manager)
+        self.transfer_manager.process_transfer(transfer_messanger)
 
     def index_received(self):
         return self.remote_index is not None

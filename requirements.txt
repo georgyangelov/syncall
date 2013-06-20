@@ -1,2 +1,2 @@
 msgpack-python==0.3.0
-pyrsync2==0.2.1
+pyrsync2==0.2.6

@@ -1,5 +1,6 @@
 DEFAULT_PORT = 5555
 DEFAULT_TRANSFER_PORT = 5556
+DEFAULT_BLOCK_SIZE = 4096
 VERSION = 0
 
 from syncall.network import ConnectionListener, Messanger
