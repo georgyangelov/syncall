@@ -4,8 +4,7 @@ import os
 import pathext
 import msgpack
 import bintools
-
-from bintools import hash_file
+import pyrsync2
 
 
 CONFLICT = -1
@@ -33,6 +32,19 @@ class Directory:
         if load_index:
             self.load_index()
 
+    def get_file_path(self, file_name):
+        return os.path.join(self.dir_path, file_name)
+
+    def get_block_checksums(self, file_name):
+        with self.fs_access_lock:
+            if file_name not in self._index:
+                raise ValueError('File {} not in index.'.format(file_name))
+
+            with open(self.get_file_path(file_name)) as file:
+                block_checksums = list(pyrsync2.blockchecksums(file))
+
+        return block_checksums
+
     def load_index(self):
         with self.fs_access_lock:
             if os.path.isfile(self.index_path):
@@ -52,10 +64,11 @@ class Directory:
         return self._index
 
     def save_index(self):
-        index = msgpack.packb(self._index)
+        with self.fs_access_lock:
+            index = msgpack.packb(self._index)
 
-        with open(self.index_path, 'wb') as index_file:
-            index_file.write(index)
+            with open(self.index_path, 'wb') as index_file:
+                index_file.write(index)
 
     def update_index(self, save_index=True):
         """
@@ -89,8 +102,8 @@ class Directory:
                     file_path = pathext.normalize(os.path.join(dirpath, name))
                     self._update_file_index(file_path)
 
-            if save_index:
-                self.save_index()
+        if save_index:
+            self.save_index()
 
     def _update_file_index(self, file_path):
         relative_path = os.path.relpath(file_path, self.dir_path)
@@ -98,7 +111,7 @@ class Directory:
 
         if not file_data:
             # New file
-            file_hash = hash_file(file_path)
+            file_hash = bintools.hash_file(file_path)
             file_data['last_update'] = int(os.path.getmtime(file_path))
             file_data['hash'] = file_hash
             file_data['last_update_location'] = self.uuid
@@ -108,7 +121,7 @@ class Directory:
 
         elif int(os.path.getmtime(file_path)) > file_data['last_update']:
             # Check if file is actually changed or the system time is off
-            file_hash = hash_file(file_path)
+            file_hash = bintools.hash_file(file_path)
 
             if file_data['hash'] != file_hash:
                 # File modified locally (since last sync)

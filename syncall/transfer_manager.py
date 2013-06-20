@@ -69,12 +69,14 @@ class FileTransfer(threading.Thread):
     MSG_ACCEPT = 1
     MSG_CANCEL = 2
 
-    def __init__(self, index, messanger, file_name=None):
+    def __init__(self, directory, messanger, file_name=None):
         super().__init__()
 
-        self.index = index
-        self.file_name = file_name
+        self.directory = directory
         self.messanger = messanger
+
+        self.file_name = file_name
+        self.remote_file_data = None
 
         self.messanger.packet_received += self.__packet_received
         self.messanger.disconnected += self.__disconnected
@@ -120,10 +122,14 @@ class FileTransfer(threading.Thread):
         self.messanger.send({
             "type": self.MSG_INIT_TRANSFER,
             "name": self.file_name,
-            "data": self.index[self.file_name]
+            "data": self.directory.get_index()[self.file_name]
         })
 
     def __transfer_file(self):
+        self.logger.debug(
+            "Started transferring file {} to remote {}"
+            .format(self.file_name, self.messanger.address[0])
+        )
         super().start()
 
     def run(self):
@@ -139,16 +145,22 @@ class FileTransfer(threading.Thread):
         """
         file_status = syncall.IndexDiff.compare_file(
             file_data,
-            self.index[file_name]
+            self.directory.get_index()[file_name]
         )
 
         if file_status == NEEDS_UPDATE:
+            self.file_name = file_name
+            self.remote_file_data = file_data
             self.__transfer_started = True
 
             self.messanger.send({
-                "type": self.MSG_ACCEPT
-                # TODO: Send block checksums of file
+                "type": self.MSG_ACCEPT,
+                "checksums": self.directory.get_block_checksums(self.file_name)
             })
+            self.logger.debug(
+                "Accepted a file transfer request for {} from {}"
+                .format(file_name, self.messanger.address[0])
+            )
         else:
             self.logger.error(
                 "File transfer requested for {} from {} shouldn't be updated"
