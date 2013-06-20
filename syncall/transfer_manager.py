@@ -1,6 +1,9 @@
 import logging
 import threading
 
+from events import Event
+import syncall
+
 
 class TransferManager:
     def __init__(self, remote):
@@ -14,9 +17,11 @@ class TransferManager:
         self.transfers = dict()
 
     def process_transfer(self, messanger):
+        """
+        Verify the request is legit, wrap it in a FileTransfer object
+        and make sure it's tracked
+        """
         with self.transfers_lock:
-            # Verify the request is legit, wrap it in a FileTransfer object
-            # and make sure it's tracked
             if self.remote.address != messanger.address[0]:
                 # Someone's trying to impersonate a remote?!?
                 self.logger.debug(
@@ -58,15 +63,116 @@ class TransferManager:
             self.transfers.clear()
 
 
-class FileTransfer:
-    def __init__(self, file_data):
+class FileTransfer(threading.Thread):
+    # Message types
+    MSG_INIT = 0
+    MSG_ACCEPT = 1
+    MSG_CANCEL = 2
+
+    def __init__(self, index, messanger, file_name=None):
         super().__init__()
 
-        self.file_data = file_data
+        self.index = index
+        self.file_name = file_name
+        self.messanger = messanger
+
+        self.messanger.packet_received += self.__packet_received
+        self.messanger.disconnected += self.__disconnected
+
+        self.__transfer_started = False
+        self.__transfer_complete = False
+        self.__transfer_cancelled = False
+
+        self.transfer_complete = Event()
+        self.transfer_failed = Event()
+        self.transfer_cancelled = Event()
+
+        self.messanger.start_receiving()
+
+    def is_done(self):
+        return self.__transfer_cancelled or self.__transfer_complete
+
+    def has_started(self):
+        return self.__transfer_started
 
     def shutdown(self):
-        pass
+        self.__transfer_cancelled = True
+        self.transfer_cancelled.notify()
+
+        self.messanger.send({
+            "type": self.MSG_CANCEL
+        })
+        self.messanger.shutdown()
+
+    def terminate(self):
+        self.messanger.shutdown()
 
     def start(self):
-        # Transfer a file to the remote end
+        """
+        Transfer a file to the remote end. Do not call this if
+        a transfer request should be handled.
+        """
+        if self.file_name is None:
+            raise ValueError("file_name is None. Cannot transfer unknown file")
+
+        self.__transfer_started = True
+
+        self.messanger.send({
+            "type": self.MSG_INIT_TRANSFER,
+            "name": self.file_name,
+            "data": self.index[self.file_name]
+        })
+
+    def __transfer_file(self):
+        super().start()
+
+    def run(self):
+        """
+        Send the delta data to the remote side.
+        """
         pass
+
+    def __accept_file(self, file_name, file_data):
+        """
+        Make sure the file needs to be transfered
+        and accept it if it does.
+        """
+        file_status = syncall.IndexDiff.compare_file(
+            file_data,
+            self.index[file_name]
+        )
+
+        if file_status == NEEDS_UPDATE:
+            self.__transfer_started = True
+
+            self.messanger.send({
+                "type": self.MSG_ACCEPT
+                # TODO: Send block checksums of file
+            })
+        else:
+            self.logger.error(
+                "File transfer requested for {} from {} shouldn't be updated"
+                .format(file_name, self.messanger.address[0])
+            )
+            self.shutdown()
+
+    def __packet_received(self, data):
+        if data['type'] == self.MSG_INIT_TRANSFER:
+            self.__accept_file(self, data['name'], data['data'])
+
+        elif data['type'] == self.MSG_ACCEPT:
+            self.__transfer_file()
+
+        elif data['type'] == self.MSG_CANCEL:
+            self.__transfer_cancelled = True
+            self.transfer_cancelled.notify()
+
+        else:
+            self.logger.error("Unknown packet from {}: {}".format(
+                self.messanger.address[0],
+                packet['type']
+            ))
+
+    def __disconnected(self, data):
+        if not self.__transfer_cancelled and not self.__transfer_complete:
+            self.transfer_failed.notify()

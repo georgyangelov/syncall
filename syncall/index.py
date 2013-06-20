@@ -147,7 +147,7 @@ class IndexDiff:
         conflicts = set()
 
         for (file, file_data) in local.items():
-            sync_status = IndexDiff._compare_file(
+            sync_status = IndexDiff.compare_file(
                 file_data,
                 remote.get(file, None)
             )
@@ -160,7 +160,7 @@ class IndexDiff:
         return (updates, deletes, conflicts)
 
     @staticmethod
-    def _compare_file(local, remote):
+    def compare_file(local, remote):
         """
         Compare two files by their index data. remote can be None if remote
         data is not present.
