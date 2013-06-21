@@ -67,7 +67,6 @@ class Messanger(Thread):
 
                 self.__handle_received_data(data)
 
-        self.logger.debug("Connection to {} closed".format(self.address[0]))
         self.disconnected.notify()
         self.disconnected.clear_handlers()
         self.packet_received.clear_handlers()

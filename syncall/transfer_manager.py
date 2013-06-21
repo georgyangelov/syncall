@@ -9,24 +9,66 @@ from events import Event
 import syncall
 
 
+class TransferDict:
+    def __init__(self):
+
+        # file: dict(remote_uuid: transfer)
+        self.transfers = dict()
+
+    def has_transfers(self, file):
+        return file in self.transfers
+
+    def has(self, file, remote_uuid):
+        return file in self.transfers and remote_uuid in self.transfers[file]
+
+    def has_same(self, transfer):
+        return self.has(transfer.file_name, transfer.get_remote_uuid())
+
+    def get_transfers(self, file):
+        return self.transfers[file]
+
+    def get(self, file, remote_uuid):
+        return self.transfers[file][remote_uuid]
+
+    def get_same(self, transfer):
+        return self.get(transfer.file_name, transfer.get_remote_uuid())
+
+    def get_all(self):
+        for transfer_info in list(self.transfers.values()):
+            for transfer in list(transfer_info.values()):
+                yield transfer
+
+    def add(self, transfer):
+        transfer_info = self.transfers.setdefault(transfer.file_name, dict())
+
+        transfer_info[transfer.get_remote_uuid()] = transfer
+
+    def remove(self, transfer):
+        if not self.has_same(transfer):
+            return
+
+        transfer_info = self.transfers[transfer.file_name]
+
+        del transfer_info[transfer.get_remote_uuid()]
+
+
 class TransferManager:
-    def __init__(self, remote):
+    def __init__(self, directory):
         self.logger = logging.getLogger(__name__)
 
-        self.remote = remote
-        self.directory = remote.directory
+        self.directory = directory
 
         self.transfers_lock = threading.Lock()
 
-        self.transfers = dict()
+        self.transfers = TransferDict()
 
-    def process_transfer(self, messanger):
+    def process_transfer(self, remote, messanger):
         """
         Verify the request is legit, wrap it in a FileTransfer object
         and make sure it's tracked
         """
         with self.transfers_lock:
-            if self.remote.address != messanger.address[0]:
+            if remote.address != messanger.address[0]:
                 # Someone's trying to impersonate a remote?!?
                 self.logger.debug(
                     "Transfer initiated from a non-expected address: {}"
@@ -42,21 +84,31 @@ class TransferManager:
 
             self.hook_events(transfer, start_event=True)
 
-    def sync_file(self, file, lock=True):
+    def sync_file(self, remote, file):
         with self.transfers_lock:
-            if file in self.transfers:
-                transfer = self.transfers[file]
+            if self.transfers.has(file, remote.uuid):
+                # This file is already being transferred to that remote
+                transfer = self.transfers.get(file, remote.uuid)
 
                 if transfer.file_data != self.directory.get_index()[file]:
+                    self.logger.debug(
+                        "Stopping old transfer of {} to {} because of changes"
+                        .format(transfer.file_name, transfer.get_remote_uuid())
+                    )
+                    # Index has changed (=> file is changed)
+                    # so kill the old transfer and start a new one
                     transfer.shutdown()
-                    del self.transfers[file]
+                    self.transfers.remove(transfer)
+                else:
+                    # Index hasn't changed so just keep the old transfer
+                    return
 
             self.logger.debug("Syncing {}".format(file))
 
             messanger = syncall.Messanger.connect(
-                (self.remote.address, syncall.DEFAULT_TRANSFER_PORT),
-                self.remote.my_uuid,
-                self.remote.uuid
+                (remote.address, syncall.DEFAULT_TRANSFER_PORT),
+                remote.my_uuid,
+                remote.uuid
             )
 
             # File is guaranteed to be indexed locally
@@ -67,10 +119,10 @@ class TransferManager:
                 file,
                 syncall.DEFAULT_BLOCK_SIZE
             )
-            self.transfers[file] = transfer
+            self.transfers.add(transfer)
 
-            self.hook_events(transfer, start_event=False)
-            transfer.start()
+        self.hook_events(transfer, start_event=False)
+        transfer.start()
 
     def hook_events(self, transfer, start_event=True):
         transfer.transfer_completed += self.__transfer_completed
@@ -83,55 +135,64 @@ class TransferManager:
         transfer.initialize()
 
     def __transfer_started(self, transfer):
-        if transfer.file_name in self.transfers:
-            self.logger.debug(
-                "Transfer initiated but another transfer for this file"
-                " is already running"
-            )
-            return
+        """
+        Handler for the transfer_started event. Only called if the
+        transfer is initiated by the remote side.
+        """
+        with self.transfers_lock:
+            if self.transfers.has_same(transfer):
+                old_transfer = self.transfers.get_same(transfer)
 
-        self.transfers[transfer.file_name] = transfer
+                diff = syncall.IndexDiff.compare_file(
+                    old_transfer.file_data,
+                    transfer.file_data
+                )
+                if diff != syncall.index.NEEDS_UPDATE:
+                    # The older transfer is still valid
+                    transfer.shutdown()
+                    return
+                else:
+                    # The newer transfer holds newer file
+                    old_transfer.shutdown()
+                    self.transfers.remove(old_transfer)
+
+            self.transfers.add(transfer)
 
     def __transfer_completed(self, transfer):
         # TODO: Update the file
 
         self.logger.debug(
             "Transfer of {} : {} completed"
-            .format(transfer.file_name, self.remote.address)
+            .format(transfer.file_name, transfer.get_remote_uuid())
         )
 
         with self.transfers_lock:
-            if transfer.file_name in self.transfers:
-                del self.transfers[transfer.file_name]
+            self.transfers.remove(transfer)
 
     def __transfer_failed(self, transfer):
         self.logger.debug(
             "Transfer of {} : {} failed"
-            .format(transfer.file_name, self.remote.address)
+            .format(transfer.file_name, transfer.get_remote_uuid())
         )
 
-        if transfer.file_name in self.transfers:
-            del self.transfers[transfer.file_name]
+        self.transfers.remove(transfer)
 
     def __transfer_cancelled(self, transfer):
         self.logger.debug(
             "Transfer of {} : {} was cancelled"
-            .format(transfer.file_name, self.remote.address)
+            .format(transfer.file_name, transfer.get_remote_uuid())
         )
 
-        if transfer.file_name in self.transfers:
-            del self.transfers[transfer.file_name]
+        self.transfers.remove(transfer)
 
-    def sync_files(self, file_list):
+    def sync_files(self, remote, file_list):
         for file in file_list:
-            self.sync_file(file)
+            self.sync_file(remote, file)
 
     def stop_transfers(self):
         with self.transfers_lock:
-            for transfer in list(self.transfers.values()):
+            for transfer in list(self.transfers.get_all()):
                 transfer.shutdown()
-
-        self.transfers.clear()
 
 
 class FileTransfer(threading.Thread):
@@ -152,6 +213,11 @@ class FileTransfer(threading.Thread):
         self.messanger = messanger
 
         self.file_name = file_name
+        if file_name is not None:
+            self.file_data = self.directory.get_index()[self.file_name]
+        else:
+            self.file_data = None
+
         self.block_size = block_size
         self.remote_file_data = None
         self.remote_checksums = None
@@ -180,6 +246,9 @@ class FileTransfer(threading.Thread):
 
     def has_started(self):
         return self.__transfer_started
+
+    def get_remote_uuid(self):
+        return self.messanger.remote_uuid
 
     def shutdown(self):
         self.__transfer_cancelled = True
@@ -222,7 +291,7 @@ class FileTransfer(threading.Thread):
         self.messanger.send({
             "type": self.MSG_INIT,
             "name": self.file_name,
-            "data": self.directory.get_index()[self.file_name]
+            "data": self.file_data
         })
 
     def __transfer_file(self, remote_checksums, block_size):
@@ -280,6 +349,7 @@ class FileTransfer(threading.Thread):
 
         if file_status == syncall.index.NEEDS_UPDATE:
             self.file_name = file_name
+            self.file_data = self.directory.get_index(self.file_name)
             self.remote_file_data = file_data
             self.__temp_file_name = self.directory.get_temp_path(
                 self.file_name

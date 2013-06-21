@@ -4,7 +4,10 @@ import os
 import pathext
 import msgpack
 import bintools
+import re
 import pyrsync2
+
+import syncall
 
 
 CONFLICT = -1
@@ -17,6 +20,8 @@ class Directory:
     Listens for file system changes in specific directory and applies
     changes from different sources.
     """
+
+    IGNORE_PATTERNS = r'\.syncall_.*'
 
     def __init__(self, uuid, dir_path, index_name='.syncall_index',
                  load_index=True, temp_dir_name='.syncall_temp'):
@@ -35,6 +40,8 @@ class Directory:
         self.temp_dir_lock = threading.Lock()
 
         self.temp_files = set()
+
+        self.transfer_manager = syncall.TransferManager(self)
 
         if load_index:
             self.load_index()
@@ -106,8 +113,13 @@ class Directory:
             else:
                 self._index = dict()
 
-    def get_index(self):
-        return self._index
+    def get_index(self, file_name=None):
+        if file_name is None:
+            return self._index
+        elif file_name not in self._index:
+            return None
+        else:
+            return self._index[file_name]
 
     def save_index(self):
         with self.fs_access_lock:
@@ -146,7 +158,9 @@ class Directory:
             for dirpath, dirnames, filenames in os.walk(self.dir_path):
                 for name in filenames:
                     file_path = pathext.normalize(os.path.join(dirpath, name))
-                    self._update_file_index(file_path)
+
+                    if not re.search(self.IGNORE_PATTERNS, file_path):
+                        self._update_file_index(file_path)
 
         if save_index:
             self.save_index()
