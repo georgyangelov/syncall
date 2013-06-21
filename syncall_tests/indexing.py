@@ -2,6 +2,8 @@ import unittest
 import os
 import time
 
+from unittest.mock import Mock, patch
+
 import bintools
 import syncall
 
@@ -27,8 +29,82 @@ class DirectoryIndexTests(unittest.TestCase):
         except:
             pass
 
+    @patch("os.mkdir")
+    def test_create_temp_dir(self, mockr):
+        directory = syncall.Directory('uuid', self.TEST_DIR,
+                                      temp_dir_name='.syncall_temp',
+                                      create_temp_dir=True,
+                                      load_index=False)
+
+        mockr.assert_called_with(
+            os.path.join(self.TEST_DIR, '.syncall_temp')
+        )
+
+    @patch("os.remove")
+    @patch("os.path.isfile", side_effect=[True, True, False])
+    @patch("builtins.open")
+    def test_temp_files(self, open, isfile, remove):
+        directory = syncall.Directory('uuid', self.TEST_DIR,
+                                      load_index=False,
+                                      temp_dir_name='.syncall_temp')
+        res = directory.get_temp_path('test')
+        expected = os.path.join(
+            self.TEST_DIR, '.syncall_temp', 'test-2'
+        )
+
+        self.assertEqual(res, expected)
+        open.assert_called_with(expected, 'a+')
+
+        isfile.side_effect = [True]
+        directory.clear_temp_dir()
+        remove.assert_called_once_with(expected)
+
+    def test_get_file_path(self):
+        directory = syncall.Directory('uuid', self.TEST_DIR,
+                                      load_index=False,
+                                      temp_dir_name='.syncall_temp')
+        res = directory.get_file_path('test')
+
+        self.assertEqual(res, os.path.join(self.TEST_DIR, 'test'))
+
+    @patch("pyrsync2.blockchecksums")
+    @patch("builtins.open")
+    def test_get_block_checksums(self, open, blockchecksums):
+        directory = syncall.Directory('uuid', self.TEST_DIR,
+                                      load_index=False,
+                                      temp_dir_name='.syncall_temp')
+
+        blockchecksums.return_value = [1, 2, 3]
+        hashes = directory.get_block_checksums('test', 1024)
+
+        assert not open.called, 'method should not have been called'
+        assert not blockchecksums.called, 'method should not have been called'
+        self.assertEqual(len(hashes), 0)
+
+        directory._index['test'] = dict()
+        hashes = directory.get_block_checksums('test', 1024)
+
+        open.assert_called_with(directory.get_file_path('test'), 'rb')
+
+        self.assertEqual(hashes, [1, 2, 3])
+
+    def test_get_index(self):
+        directory = syncall.Directory('uuid', self.TEST_DIR,
+                                      load_index=False,
+                                      temp_dir_name='.syncall_temp')
+
+        directory._index = {
+            'file': {
+                'test': True
+            }
+        }
+
+        self.assertEqual(directory.get_index(), directory._index)
+        self.assertIsNone(directory.get_index('no_file'))
+        self.assertEqual(directory.get_index('file'), directory._index['file'])
+
     def test_new_index(self):
-        directory = syncall.Directory('uuid', self.TEST_DIR)
+        directory = syncall.Directory('uuid', self.TEST_DIR, load_index=False)
         directory.update_index(save_index=True)
 
         for path in self.TEST_FILES:

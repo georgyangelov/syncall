@@ -55,7 +55,8 @@ os.makedirs(SHARE_DIR, exist_ok=True)
 
 uuid = syncall.get_uuid(CONFIG_DIR + '/.uuid')
 
-share_dir_obj = syncall.Directory(uuid, SHARE_DIR)
+share_dir_obj = syncall.Directory(uuid, SHARE_DIR,
+                                  create_temp_dir=True)
 share_dir_obj.update_index()
 
 network_discovery = syncall.NetworkDiscovery(

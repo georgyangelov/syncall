@@ -24,7 +24,8 @@ class Directory:
     IGNORE_PATTERNS = r'\.syncall_.*'
 
     def __init__(self, uuid, dir_path, index_name='.syncall_index',
-                 load_index=True, temp_dir_name='.syncall_temp'):
+                 load_index=True, temp_dir_name='.syncall_temp',
+                 create_temp_dir=False):
         self.logger = logging.getLogger(__name__)
 
         self.uuid = uuid
@@ -33,7 +34,7 @@ class Directory:
         self.index_path = os.path.join(self.dir_path, self.index_name)
         self.temp_dir = os.path.join(self.dir_path, temp_dir_name)
 
-        if not os.path.exists(self.temp_dir):
+        if create_temp_dir and not os.path.exists(self.temp_dir):
             os.mkdir(self.temp_dir)
 
         self.fs_access_lock = threading.Lock()
@@ -45,6 +46,8 @@ class Directory:
 
         if load_index:
             self.load_index()
+        else:
+            self._index = dict()
 
     def get_temp_path(self, proposed_name):
         """
@@ -79,8 +82,7 @@ class Directory:
 
     def clear_temp_dir(self):
         for path in self.temp_files:
-            if os.path.isfile(path):
-                os.remove(path)
+            self.release_temp_file(path)
 
     def get_file_path(self, file_name):
         return os.path.join(self.dir_path, file_name)
