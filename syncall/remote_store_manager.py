@@ -99,6 +99,7 @@ class RemoteStoreManager:
                     return
 
                 remote_store = syncall.RemoteStore(messanger, self.directory)
+                remote_store.disconnected += self.__client_disconnected
 
                 self.remotes[remote_uuid] = remote_store
                 self.logger.info(
