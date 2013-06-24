@@ -1,6 +1,6 @@
 import unittest
 import msgpack
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from events import Event
 
 import syncall
@@ -8,13 +8,9 @@ from syncall.network_discovery import BroadcastEventNotifierHandler
 
 
 class NetworkDiscoveryTests(unittest.TestCase):
-    def setUp(self):
-        def nul(self):
-            pass
 
-        syncall.NetworkDiscovery._NetworkDiscovery__init_network_objects = nul
-
-    def test_discovery_event(self):
+    @patch('socket.socket')
+    def test_discovery_event(self, socket):
         net = syncall.NetworkDiscovery(1234, 2, 'uuid')
 
         calls = []
@@ -43,7 +39,8 @@ class NetworkDiscoveryTests(unittest.TestCase):
             }
         ])
 
-    def test_request(self):
+    @patch('socket.socket')
+    def test_request(self, socket):
         net = syncall.NetworkDiscovery(1234, 2, 'uuid')
 
         calls = []
@@ -65,7 +62,8 @@ class NetworkDiscoveryTests(unittest.TestCase):
             )
         ])
 
-    def test_broadcast_notifier(self):
+    @patch('socket.socket')
+    def test_broadcast_notifier(self, socket):
         class DummyServer:
             def __init__(self):
                 self.packet_received = Event()

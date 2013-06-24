@@ -119,12 +119,12 @@ class ConnectionListener(Thread):
         self.my_uuid = my_uuid
         self.address = ('', port)
         self.connection_establiashed = Event()
+        self.serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def shutdown(self):
         self.serversock.close()
 
     def run(self):
-        self.serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serversock.bind(self.address)
         self.serversock.listen(5)
         self.serversock.settimeout(1)
