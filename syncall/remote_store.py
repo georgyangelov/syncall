@@ -5,6 +5,7 @@ from events import Event
 
 
 MSG_INDEX = 1
+MSG_REQUEST_INDEX = 2
 
 
 class RemoteStore:
@@ -38,11 +39,18 @@ class RemoteStore:
 
     def start_receiving(self):
         self.messanger.start_receiving()
+        self.send_index()
 
+    def send_index(self, request=True):
         self.messanger.send({
             'type': MSG_INDEX,
             'index': self.directory.get_index()
         })
+
+        if request:
+            self.messanger.send({
+                'type': MSG_REQUEST_INDEX
+            })
 
     def __disconnected(self, no_data):
         self.directory.transfer_manager.remote_disconnect(self)
@@ -66,6 +74,9 @@ class RemoteStore:
             self.remote_index = packet['index']
             self.__remote_index_updated()
 
+        elif packet['type'] == MSG_REQUEST_INDEX:
+            self.send_index(request=False)
+
         else:
             self.logger.error("Unknown packet from {}: {}".format(
                 self.address,
@@ -76,6 +87,12 @@ class RemoteStore:
         self.logger.debug("{}'s index updated".format(self.address))
 
         diff = self.directory.diff(self.remote_index)
+
+        if diff[2]:
+            self.logger.debug(
+                "File conflicts with {}: {}"
+                .format(self.uuid, diff[2])
+            )
 
         # TODO: Handle deleted and conflicted files
         self.directory.transfer_manager.sync_files(self, diff[0])

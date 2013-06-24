@@ -3,6 +3,7 @@ import threading
 import os
 import pyrsync2
 
+from datetime import datetime
 from io import BytesIO
 
 from events import Event
@@ -159,7 +160,7 @@ class TransferManager:
             self.transfers.add(transfer)
 
     def __transfer_completed(self, transfer):
-        # TODO: Update the file
+        self.directory.finalize_transfer(transfer)
 
         self.logger.debug(
             "Transfer of {} : {} completed"
@@ -202,6 +203,10 @@ class TransferManager:
 
 
 class FileTransfer(threading.Thread):
+    # Transfer types
+    FROM_REMOTE = 0
+    TO_REMOTE = 1
+
     # Message types
     MSG_INIT = 0
     MSG_INIT_ACCEPT = 1
@@ -215,9 +220,15 @@ class FileTransfer(threading.Thread):
 
         self.logger = logging.getLogger(__name__)
 
+        if file_name is None:
+            self.type = self.FROM_REMOTE
+        else:
+            self.type = self.TO_REMOTE
+
         self.directory = directory
         self.messanger = messanger
 
+        self.timestamp = None
         self.file_name = file_name
         if file_name is not None:
             self.file_data = self.directory.get_index()[self.file_name]
@@ -243,6 +254,9 @@ class FileTransfer(threading.Thread):
         self.transfer_completed = Event()
         self.transfer_failed = Event()
         self.transfer_cancelled = Event()
+
+    def get_temp_path(self):
+        return self.__temp_file_name
 
     def initialize(self):
         self.messanger.start_receiving()
@@ -288,8 +302,8 @@ class FileTransfer(threading.Thread):
         Transfer a file to the remote end. Do not call this if
         a transfer request should be handled.
         """
-        if self.file_name is None:
-            raise ValueError("file_name is None. Cannot transfer unknown file")
+        if self.type != self.TO_REMOTE:
+            raise ValueError("Transfer was not created as TO_REMOTE type")
 
         self.__transfer_started = True
         self.transfer_started.notify(self)
@@ -419,6 +433,8 @@ class FileTransfer(threading.Thread):
 
         elif data['type'] == self.MSG_DONE_ACCEPT:
             self.__transfer_completed = True
+
+            self.timestamp = data['time']
             self.terminate()
 
             self.transfer_completed.notify(self)
@@ -446,14 +462,23 @@ class FileTransfer(threading.Thread):
             self.shutdown()
 
     def __complete_transfer(self):
-        self.messanger.send({
-            'type': self.MSG_DONE_ACCEPT
-        })
+        self.timestamp = int(datetime.now().timestamp())
+
+        # Flush the file contents
+        self.__file_handle.close()
+        self.__file_handle = None
+        self.__temp_file_handle.close()
+        self.__temp_file_handle = None
 
         # Remote side should disconnect after MSG_DONE_ACCEPT
         self.__transfer_completed = True
 
         self.transfer_completed.notify(self)
+
+        self.messanger.send({
+            'type': self.MSG_DONE_ACCEPT,
+            'time': self.timestamp
+        })
 
     def __disconnected(self, data):
         self.__release_resources()

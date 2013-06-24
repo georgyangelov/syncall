@@ -26,12 +26,22 @@ class RemoteStoreManager:
         self.network_discovery.client_discovered += self.__client_discovered
         self.network_discovery.request()
 
+        self.directory.index_updated += self.__index_updated
+
     def shutdown(self):
         # This will trigger their diconnected event and will remove them
         # from the remotes dictionary
         with self.remotes_lock:
             for remote in self.remotes.values():
                 remote.disconnect()
+
+    def send_index(self):
+        with self.remotes_lock:
+            for remote in self.remotes.values():
+                remote.send_index()
+
+    def __index_updated(self, no_data):
+        self.send_index()
 
     def __transfer_initiated(self, transfer_messanger):
         # Accept the transfer connection and pass it to the

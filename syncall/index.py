@@ -6,8 +6,11 @@ import msgpack
 import bintools
 import re
 import pyrsync2
+import shutil
 
 import syncall
+
+from events import Event
 
 
 CONFLICT = -1
@@ -44,6 +47,8 @@ class Directory:
 
         self.transfer_manager = syncall.TransferManager(self)
 
+        self.index_updated = Event()
+
         if load_index:
             self.load_index()
         else:
@@ -77,8 +82,11 @@ class Directory:
         """
         Remove a temp file created using `get_temp_path`.
         """
-        if path in self.temp_files and os.path.isfile(path):
-            os.remove(path)
+        if path in self.temp_files:
+            try:
+                os.remove(path)
+            except:
+                pass
 
     def clear_temp_dir(self):
         for path in self.temp_files:
@@ -167,6 +175,8 @@ class Directory:
         if save_index:
             self.save_index()
 
+        self.index_updated.notify()
+
     def _update_file_index(self, file_path):
         relative_path = os.path.relpath(file_path, self.dir_path)
         file_data = self._index.setdefault(relative_path, dict())
@@ -199,6 +209,56 @@ class Directory:
 
     def diff(self, remote_index):
         return IndexDiff.diff(self._index, remote_index)
+
+    def finalize_transfer(self, transfer):
+        if transfer.type == transfer.TO_REMOTE:
+            self.__finalize_transfer_to_remote(transfer)
+        else:
+            self.__finalize_transfer_from_remote(transfer)
+
+        self.save_index()
+
+    def __finalize_transfer_to_remote(self, transfer):
+        with self.fs_access_lock:
+            self.__update_index_after_transfer(
+                transfer.file_name,
+                self.get_index(transfer.file_name),
+                transfer.get_remote_uuid(),
+                transfer.timestamp
+            )
+
+    def __finalize_transfer_from_remote(self, transfer):
+        with self.fs_access_lock:
+            diff = IndexDiff.compare_file(
+                transfer.remote_file_data,
+                self.get_index(transfer.file_name)
+            )
+
+            if diff == NEEDS_UPDATE:
+                # Update the actual file
+                shutil.move(
+                    transfer.get_temp_path(),
+                    self.get_file_path(transfer.file_name)
+                )
+
+                # Update the file index
+                self.__update_index_after_transfer(
+                    transfer.file_name,
+                    transfer.remote_file_data,
+                    transfer.messanger.my_uuid,
+                    transfer.timestamp
+                )
+            else:
+                self.logger.debug(
+                    "Skipping update of outdated file {} from {}"
+                    .format(transfer.file_name, transfer.get_remote_uuid())
+                )
+
+    def __update_index_after_transfer(self, file_name, file_index, uuid, time):
+        file_index['sync_log'][uuid] = time
+        self._index[file_name] = file_index
+
+        self.index_updated.notify()
 
 
 class IndexDiff:

@@ -68,6 +68,7 @@ class Messanger(Thread):
                 processed = self.__handle_received_data(data)
 
                 if not processed:
+                    self.disconnect()
                     break
 
         self.disconnected.notify()
@@ -94,7 +95,7 @@ class Messanger(Thread):
             try:
                 unpacked_packet = bintools.decode_object(
                     packet,
-                    except_keys=('hash', 'binary_data')
+                    except_keys=('hash', 'binary_data', 'checksums')
                 )
             except Exception as ex:
                 self.logger.error(
