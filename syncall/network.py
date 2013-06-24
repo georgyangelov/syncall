@@ -65,7 +65,10 @@ class Messanger(Thread):
                 if not data:
                     break
 
-                self.__handle_received_data(data)
+                processed = self.__handle_received_data(data)
+
+                if not processed:
+                    break
 
         self.disconnected.notify()
         self.disconnected.clear_handlers()
@@ -81,6 +84,7 @@ class Messanger(Thread):
                 "Couldn't send data to {}"
                 .format(self.address[0])
             )
+            self.logger.exception(ex)
             self.disconnect()
 
     def __handle_received_data(self, data):
@@ -98,6 +102,8 @@ class Messanger(Thread):
                     .format(self.address[0])
                 )
                 self.logger.exception(ex)
+
+                return False
             else:
                 try:
                     self.packet_received.notify(unpacked_packet)
@@ -105,6 +111,10 @@ class Messanger(Thread):
                     self.logger.error("Error processing packet from {}"
                                       .format(self.address[0]))
                     self.logger.exception(ex)
+
+                    return False
+
+        return True
 
 
 class ConnectionListener(Thread):
@@ -151,6 +161,7 @@ class ConnectionListener(Thread):
 
                     if len(new_uuid_bytes) == 0:
                         error = True
+                        break
 
                     uuid_bytes += new_uuid_bytes
 
@@ -160,7 +171,7 @@ class ConnectionListener(Thread):
                         "transfered properly. Closing connection..."
                     )
                     try:
-                        client_socket.close()
+                        client_socket.shutdown(socket.SHUT_RDWR)
                     except:
                         pass
                     continue

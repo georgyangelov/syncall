@@ -42,6 +42,11 @@ class NetworkDiscovery:
     def shutdown(self):
         self.listener.shutdown()
 
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except:
+            pass
+
     def request(self):
         """ Sends a discovery request to all hosts on the LAN """
         self.__broadcast({
