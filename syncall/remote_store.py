@@ -45,9 +45,8 @@ class RemoteStore:
         })
 
     def __disconnected(self, no_data):
+        self.directory.transfer_manager.remote_disconnect(self)
         self.disconnected.notify(self)
-        # TODO: Stop only the transfers from/to this remote
-        # self.transfer_manager.stop_transfers()
 
     def disconnect(self):
         self.messanger.disconnect()

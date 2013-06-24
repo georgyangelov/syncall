@@ -194,6 +194,12 @@ class TransferManager:
             for transfer in list(self.transfers.get_all()):
                 transfer.shutdown()
 
+    def remote_disconnect(self, remote):
+        with self.transfers_lock:
+            for transfer in list(self.transfers.get_all()):
+                if transfer.messanger.remote_uuid == remote.uuid:
+                    transfer.shutdown()
+
 
 class FileTransfer(threading.Thread):
     # Message types
