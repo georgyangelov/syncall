@@ -8,6 +8,8 @@ import re
 import pyrsync2
 import shutil
 
+from datetime import datetime
+
 import syncall
 
 from events import Event
@@ -36,6 +38,7 @@ class Directory:
         self.index_name = index_name
         self.index_path = os.path.join(self.dir_path, self.index_name)
         self.temp_dir = os.path.join(self.dir_path, temp_dir_name)
+        self.last_update = datetime.now().timestamp()
 
         if create_temp_dir and not os.path.exists(self.temp_dir):
             os.mkdir(self.temp_dir)
@@ -53,6 +56,9 @@ class Directory:
             self.load_index()
         else:
             self._index = dict()
+
+    def get_last_update(self):
+        return self.last_update
 
     def get_temp_path(self, proposed_name):
         """
@@ -123,6 +129,8 @@ class Directory:
             else:
                 self._index = dict()
 
+            self.last_update = datetime.now().timestamp()
+
     def get_index(self, file_name=None):
         if file_name is None:
             return self._index
@@ -164,20 +172,26 @@ class Directory:
                             Depends on the os time on the system on which
                             the change happened.
         """
+        changes = set()
+
         with self.fs_access_lock:
             for dirpath, dirnames, filenames in os.walk(self.dir_path):
                 for name in filenames:
                     file_path = pathext.normalize(os.path.join(dirpath, name))
 
                     if not re.search(self.IGNORE_PATTERNS, file_path):
-                        self._update_file_index(file_path)
+                        self._update_file_index(file_path, changes)
 
-        if save_index:
+            if changes:
+                self.last_update = datetime.now().timestamp()
+
+        if save_index and changes:
             self.save_index()
 
-        self.index_updated.notify()
+        if changes:
+            self.index_updated.notify(changes)
 
-    def _update_file_index(self, file_path):
+    def _update_file_index(self, file_path, changes):
         relative_path = os.path.relpath(file_path, self.dir_path)
         file_data = self._index.setdefault(relative_path, dict())
 
@@ -191,6 +205,8 @@ class Directory:
             sync_log = file_data.setdefault('sync_log', dict())
             sync_log[self.uuid] = file_data['last_update']
 
+            changes.add(relative_path)
+
         elif int(os.path.getmtime(file_path)) > file_data['last_update']:
             # Check if file is actually changed or the system time is off
             file_hash = bintools.hash_file(file_path)
@@ -203,6 +219,8 @@ class Directory:
 
                 sync_log = file_data.setdefault('sync_log', dict())
                 sync_log[self.uuid] = file_data['last_update']
+
+                changes.add(relative_path)
 
         if 'deleted' in file_data:
             del file_data['deleted']
@@ -258,7 +276,8 @@ class Directory:
         file_index['sync_log'][uuid] = time
         self._index[file_name] = file_index
 
-        self.index_updated.notify()
+        self.last_update = datetime.now().timestamp()
+        self.index_updated.notify({file_name})
 
 
 class IndexDiff:

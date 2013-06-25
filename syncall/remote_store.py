@@ -6,6 +6,8 @@ from events import Event
 
 MSG_INDEX = 1
 MSG_REQUEST_INDEX = 2
+MSG_INDEX_DELTA = 3
+MSG_INDEX_NO_CHANGE = 4
 
 
 class RemoteStore:
@@ -17,6 +19,7 @@ class RemoteStore:
         self.messanger = messanger
         self.directory = directory
 
+        self.my_index_last_updated = 0
         self.remote_index = None
 
         self.address = self.messanger.address[0]
@@ -39,12 +42,44 @@ class RemoteStore:
 
     def start_receiving(self):
         self.messanger.start_receiving()
-        self.send_index()
+        self.send_index(request=False)
 
     def send_index(self, request=True):
+        if self.my_index_last_updated == self.directory.get_last_update():
+            # Nothing to do here, index is already up-to-date
+            self.logger.debug(
+                "Index update requested but there are no changes"
+            )
+
+            self.messanger.send({
+                'type': MSG_INDEX_NO_CHANGE
+            })
+
+            return
+
+        self.my_index_last_updated = self.directory.get_last_update()
+
         self.messanger.send({
             'type': MSG_INDEX,
             'index': self.directory.get_index()
+        })
+
+        if request:
+            self.messanger.send({
+                'type': MSG_REQUEST_INDEX
+            })
+
+    def send_index_delta(self, changes, request=True):
+        """
+        Send only the changed files (`changes`) index data to the remote.
+        Use ONLY when ALL changed files are sent this way.
+        """
+        self.my_index_last_updated = self.directory.get_last_update()
+
+        index = self.directory.get_index()
+        self.messanger.send({
+            'type': MSG_INDEX_DELTA,
+            'index': {file_name: index[file_name] for file_name in changes}
         })
 
         if request:
@@ -74,8 +109,17 @@ class RemoteStore:
             self.remote_index = packet['index']
             self.__remote_index_updated()
 
+        elif packet['type'] == MSG_INDEX_DELTA:
+            for file_name, file_data in packet['index'].items():
+                self.remote_index[file_name] = file_data
+
+            self.__remote_index_updated()
+
         elif packet['type'] == MSG_REQUEST_INDEX:
             self.send_index(request=False)
+
+        elif packet['type'] == MSG_INDEX_NO_CHANGE:
+            self.__remote_index_updated()
 
         else:
             self.logger.error("Unknown packet from {}: {}".format(

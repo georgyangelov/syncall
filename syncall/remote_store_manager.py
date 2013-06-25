@@ -35,13 +35,22 @@ class RemoteStoreManager:
             for remote in self.remotes.values():
                 remote.disconnect()
 
-    def send_index(self):
+    def send_index(self, changed_files=None):
         with self.remotes_lock:
-            for remote in self.remotes.values():
-                remote.send_index()
+            if changed_files is None:
+                for remote in list(self.remotes.values()):
+                    remote.send_index()
+            else:
+                for remote in list(self.remotes.values()):
+                    remote.send_index_delta(changed_files)
 
-    def __index_updated(self, no_data):
-        self.send_index()
+    def __index_updated(self, changed_files):
+        if changed_files:
+            self.logger.debug(
+                "Sending index delta to all remotes: {}"
+                .format(changed_files)
+            )
+            self.send_index(changed_files)
 
     def __transfer_initiated(self, transfer_messanger):
         # Accept the transfer connection and pass it to the
