@@ -102,7 +102,7 @@ class RemoteStoreManager:
                     )
                 except Exception as ex:
                     logger = logging.getLogger(__name__)
-                    logger.error("Couldn't connect to {}".format(address[0]))
+                    logger.error("Couldn't connect to {}".format(remote_ip))
                     logger.exception(ex)
 
                     return
