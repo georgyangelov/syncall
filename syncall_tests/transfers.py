@@ -62,3 +62,33 @@ class TransferDictTests(TestCase):
         self.assertFalse(self.dict.has_same(transfer1))
 
         self.dict.remove(transfer1)
+
+
+class TransferManagerTests(TestCase):
+
+    @patch('logging.Logger')
+    def setUp(self, Logger):
+        directory = Mock()
+
+        self.remote = MagicMock()
+        self.remote.address = '127.0.0.1'
+        self.messanger = MagicMock()
+        self.messanger.address = ('127.0.0.1', 1234)
+
+        self.manager = syncall.TransferManager(directory)
+
+    def tearDown(self):
+        del self.manager
+
+    @patch('syncall.transfers.FileTransfer')
+    def test_process_transfer(self, FileTransfer):
+        self.manager.process_transfer(self.remote, self.messanger)
+
+        FileTransfer.assert_called_with(self.manager.directory, self.messanger)
+
+    def test_process_transfer_error(self):
+        self.remote.address = '127.0.0.2'
+
+        self.manager.process_transfer(self.remote, self.messanger)
+
+        self.assertTrue(self.messanger.disconnect.called)
