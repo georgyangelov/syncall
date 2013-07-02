@@ -5,3 +5,4 @@ from syncall_tests.network import *
 from syncall_tests.commons import *
 from syncall_tests.remote_store import *
 from syncall_tests.remote_store_manager import *
+from syncall_tests.transfers import *
