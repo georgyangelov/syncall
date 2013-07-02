@@ -95,15 +95,16 @@ class RemoteStore:
         self.messanger.disconnect()
 
     def _packet_received(self, packet):
-        self.logger.debug("Received packet from {}: {}".format(
-            self.address,
-            packet['type']
-        ))
-
         if 'type' not in packet:
             self.logger.error("Received packet with no type from {}".format(
                 self.address
             ))
+            return
+
+        self.logger.debug("Received packet from {}: {}".format(
+            self.address,
+            packet['type']
+        ))
 
         if packet['type'] == MSG_INDEX:
             self.remote_index = packet['index']
