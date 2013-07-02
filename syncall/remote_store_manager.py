@@ -101,9 +101,10 @@ class RemoteStoreManager:
                         remote_uuid
                     )
                 except Exception as ex:
-                    logger = logging.getLogger(__name__)
-                    logger.error("Couldn't connect to {}".format(remote_ip))
-                    logger.exception(ex)
+                    self.logger.error(
+                        "Couldn't connect to {}".format(remote_ip)
+                    )
+                    self.logger.exception(ex)
 
                     return
 
