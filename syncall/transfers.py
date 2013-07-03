@@ -198,7 +198,7 @@ class TransferManager:
     def remote_disconnect(self, remote):
         with self.transfers_lock:
             for transfer in list(self.transfers.get_all()):
-                if transfer.messanger.remote_uuid == remote.uuid:
+                if transfer.get_remote_uuid() == remote.uuid:
                     transfer.shutdown()
 
 

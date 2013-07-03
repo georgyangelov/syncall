@@ -92,3 +92,195 @@ class TransferManagerTests(TestCase):
         self.manager.process_transfer(self.remote, self.messanger)
 
         self.assertTrue(self.messanger.disconnect.called)
+
+    @patch('syncall.Messanger.connect')
+    @patch('syncall.transfers.FileTransfer')
+    def test_sync_new_file(self, FileTransfer, Messanger_connect):
+        remote = Mock()
+        remote.address = '127.0.0.1'
+        remote.my_uuid = 'my_uuid'
+        remote.uuid = 'remote_uuid'
+
+        file_transfer = MagicMock()
+        FileTransfer.return_value = file_transfer
+
+        file_transfer.get_remote_uuid.return_value = 'remote_uuid'
+        file_transfer.file_name = 'file1'
+
+        self.manager.sync_file(remote, 'file1')
+
+        self.assertTrue(self.manager.transfers.has('file1', 'remote_uuid'))
+        self.assertTrue(
+            self.manager.transfers.get('file1', 'remote_uuid').start.called
+        )
+        self.assertTrue(file_transfer.start.called)
+        self.assertTrue(file_transfer.initialize.called)
+
+    @patch('syncall.Messanger.connect')
+    @patch('syncall.transfers.FileTransfer')
+    def test_sync_file_overwrite(self, FileTransfer, Messanger_connect):
+        remote = Mock()
+        remote.address = '127.0.0.1'
+        remote.my_uuid = 'my_uuid'
+        remote.uuid = 'remote_uuid'
+
+        file_transfer = MagicMock()
+        FileTransfer.return_value = file_transfer
+
+        file_transfer.get_remote_uuid.return_value = 'remote_uuid'
+        file_transfer.file_name = 'file1'
+
+        self.manager.sync_file(remote, 'file1')
+
+        self.assertTrue(self.manager.transfers.has('file1', 'remote_uuid'))
+
+        remote2 = Mock()
+        remote2.address = '127.0.0.1'
+        remote2.my_uuid = 'my_uuid'
+        remote2.uuid = 'remote_uuid'
+
+        file_transfer2 = MagicMock()
+        FileTransfer.return_value = file_transfer2
+
+        file_transfer2.get_remote_uuid.return_value = 'remote_uuid'
+        file_transfer2.file_name = 'file1'
+        file_transfer2.file_data = {
+            'last_update': 1234
+        }
+        self.manager.directory.get_index.return_value = {
+            'file1': {
+                'last_update': 234
+            }
+        }
+
+        self.manager.sync_file(remote2, 'file1')
+
+        self.assertTrue(file_transfer.shutdown.called)
+        self.assertTrue(file_transfer2.initialize.called)
+        self.assertTrue(file_transfer2.start.called)
+
+    def test_new_transfer_started_handler(self):
+        transfer = Mock()
+        transfer.get_remote_uuid.return_value = 'remote_uuid'
+        transfer.file_name = 'file1'
+
+        self.manager._TransferManager__transfer_started(transfer)
+
+        self.assertTrue(self.manager.transfers.has('file1', 'remote_uuid'))
+
+    @patch('syncall.IndexDiff.compare_file')
+    def test_transfer_started_handler_newer(self, compare_file):
+        transfer = Mock()
+        transfer.get_remote_uuid.return_value = 'remote_uuid'
+        transfer.file_name = 'file1'
+
+        self.manager._TransferManager__transfer_started(transfer)
+
+        self.assertTrue(self.manager.transfers.has('file1', 'remote_uuid'))
+
+        transfer2 = Mock()
+        transfer2.get_remote_uuid.return_value = 'remote_uuid'
+        transfer2.file_name = 'file1'
+        compare_file.return_value = syncall.index.NEEDS_UPDATE
+
+        self.manager._TransferManager__transfer_started(transfer2)
+
+        self.assertTrue(self.manager.transfers.has('file1', 'remote_uuid'))
+        self.assertTrue(transfer.shutdown.called)
+
+    @patch('syncall.IndexDiff.compare_file')
+    def test_transfer_started_handler_older(self, compare_file):
+        transfer = Mock()
+        transfer.get_remote_uuid.return_value = 'remote_uuid'
+        transfer.file_name = 'file1'
+
+        self.manager._TransferManager__transfer_started(transfer)
+
+        self.assertTrue(self.manager.transfers.has('file1', 'remote_uuid'))
+
+        transfer2 = Mock()
+        transfer2.get_remote_uuid.return_value = 'remote_uuid'
+        transfer2.file_name = 'file1'
+        compare_file.return_value = syncall.index.NOT_MODIFIED
+
+        self.manager._TransferManager__transfer_started(transfer2)
+
+        self.assertTrue(self.manager.transfers.has('file1', 'remote_uuid'))
+        self.assertTrue(transfer2.shutdown.called)
+
+        compare_file.return_value = syncall.index.CONFLICT
+        transfer2.shutdown.called = False
+
+        self.manager._TransferManager__transfer_started(transfer2)
+
+        self.assertTrue(self.manager.transfers.has('file1', 'remote_uuid'))
+        self.assertTrue(transfer2.shutdown.called)
+
+    def test_transfer_completed_handler(self):
+        transfer = Mock()
+        self.manager.transfers = Mock()
+
+        self.manager._TransferManager__transfer_completed(transfer)
+
+        self.manager.transfers.remove.assert_called_with(transfer)
+
+    def test_transfer_failed_handler(self):
+        transfer = Mock()
+        self.manager.transfers = Mock()
+
+        self.manager._TransferManager__transfer_failed(transfer)
+
+        self.manager.transfers.remove.assert_called_with(transfer)
+
+    def test_transfer_cancelled_handler(self):
+        transfer = Mock()
+        self.manager.transfers = Mock()
+
+        self.manager._TransferManager__transfer_cancelled(transfer)
+
+        self.manager.transfers.remove.assert_called_with(transfer)
+
+    def test_sync_files(self):
+        remote = Mock()
+        file_list = {'file1', 'file2'}
+
+        self.manager.sync_file = Mock()
+        self.manager.sync_files(remote, file_list)
+
+        for file in file_list:
+            self.manager.sync_file.assert_any_call(remote, file)
+
+    def test_stop_transfers(self):
+        self.manager.transfers = Mock()
+        self.manager.transfers.get_all.return_value = [
+            Mock(), Mock(), Mock()
+        ]
+
+        self.manager.stop_transfers()
+
+        for transfer in self.manager.transfers.get_all():
+            self.assertTrue(transfer.shutdown.called)
+
+    def test_remote_disconnect(self):
+        transfer_remote1 = Mock()
+        transfer_remote1.get_remote_uuid.return_value = 'uuid1'
+
+        transfer_remote2 = Mock()
+        transfer_remote2.get_remote_uuid.return_value = 'uuid2'
+
+        transfer_remote3 = Mock()
+        transfer_remote3.get_remote_uuid.return_value = 'uuid1'
+
+        self.manager.transfers = Mock()
+        self.manager.transfers.get_all.return_value = [
+            transfer_remote1, transfer_remote2, transfer_remote3
+        ]
+
+        remote = Mock()
+        remote.uuid = 'uuid1'
+
+        self.manager.remote_disconnect(remote)
+
+        self.assertTrue(transfer_remote1.shutdown.called)
+        self.assertFalse(transfer_remote2.shutdown.called)
+        self.assertTrue(transfer_remote3.shutdown.called)
