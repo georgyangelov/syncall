@@ -18,6 +18,16 @@ class DirectoryIndexTests(unittest.TestCase):
         'animals/dogs/dog.jpg'
     )
 
+    @patch('logging.Logger')
+    def setUp(self, Logger):
+        self.directory = syncall.Directory(
+            'uuid',
+            self.TEST_DIR,
+            load_index=False,
+            temp_dir_name='.syncall_temp',
+            create_temp_dir=False
+        )
+
     def tearDown(self):
         try:
             os.remove(self.TEST_DIR + '/.syncall_index')
@@ -30,13 +40,13 @@ class DirectoryIndexTests(unittest.TestCase):
             pass
 
     @patch("os.mkdir")
-    def test_create_temp_dir(self, mockr):
+    def test_create_temp_dir(self, mkdir):
         directory = syncall.Directory('uuid', self.TEST_DIR,
                                       temp_dir_name='.syncall_temp',
                                       create_temp_dir=True,
                                       load_index=False)
 
-        mockr.assert_called_with(
+        mkdir.assert_called_with(
             os.path.join(self.TEST_DIR, '.syncall_temp')
         )
 
@@ -44,10 +54,7 @@ class DirectoryIndexTests(unittest.TestCase):
     @patch("os.path.isfile", side_effect=[True, True, False])
     @patch("builtins.open")
     def test_temp_files(self, open, isfile, remove):
-        directory = syncall.Directory('uuid', self.TEST_DIR,
-                                      load_index=False,
-                                      temp_dir_name='.syncall_temp')
-        res = directory.get_temp_path('test')
+        res = self.directory.get_temp_path('test')
         expected = os.path.join(
             self.TEST_DIR, '.syncall_temp', 'test-2'
         )
@@ -56,61 +63,52 @@ class DirectoryIndexTests(unittest.TestCase):
         open.assert_called_with(expected, 'a+')
 
         isfile.side_effect = [True]
-        directory.clear_temp_dir()
+        self.directory.clear_temp_dir()
         remove.assert_called_once_with(expected)
 
     def test_get_file_path(self):
-        directory = syncall.Directory('uuid', self.TEST_DIR,
-                                      load_index=False,
-                                      temp_dir_name='.syncall_temp')
-        res = directory.get_file_path('test')
+        res = self.directory.get_file_path('test')
 
         self.assertEqual(res, os.path.join(self.TEST_DIR, 'test'))
 
     @patch("pyrsync2.blockchecksums")
     @patch("builtins.open")
     def test_get_block_checksums(self, open, blockchecksums):
-        directory = syncall.Directory('uuid', self.TEST_DIR,
-                                      load_index=False,
-                                      temp_dir_name='.syncall_temp')
-
         blockchecksums.return_value = [1, 2, 3]
-        hashes = directory.get_block_checksums('test', 1024)
+        hashes = self.directory.get_block_checksums('test', 1024)
 
         assert not open.called, 'method should not have been called'
         assert not blockchecksums.called, 'method should not have been called'
         self.assertEqual(len(hashes), 0)
 
-        directory._index['test'] = dict()
-        hashes = directory.get_block_checksums('test', 1024)
+        self.directory._index['test'] = dict()
+        hashes = self.directory.get_block_checksums('test', 1024)
 
-        open.assert_called_with(directory.get_file_path('test'), 'rb')
+        open.assert_called_with(self.directory.get_file_path('test'), 'rb')
 
         self.assertEqual(hashes, [1, 2, 3])
 
     def test_get_index(self):
-        directory = syncall.Directory('uuid', self.TEST_DIR,
-                                      load_index=False,
-                                      temp_dir_name='.syncall_temp')
-
-        directory._index = {
+        self.directory._index = {
             'file': {
                 'test': True
             }
         }
 
-        self.assertEqual(directory.get_index(), directory._index)
-        self.assertIsNone(directory.get_index('no_file'))
-        self.assertEqual(directory.get_index('file'), directory._index['file'])
+        self.assertEqual(self.directory.get_index(), self.directory._index)
+        self.assertIsNone(self.directory.get_index('no_file'))
+        self.assertEqual(
+            self.directory.get_index('file'),
+            self.directory._index['file']
+        )
 
     def test_new_index(self):
-        directory = syncall.Directory('uuid', self.TEST_DIR, load_index=False)
-        directory.update_index(save_index=True)
+        self.directory.update_index(save_index=True)
 
         for path in self.TEST_FILES:
-            self.assertIn(path, directory._index)
+            self.assertIn(path, self.directory._index)
 
-            file_data = directory._index[path]
+            file_data = self.directory._index[path]
             self.assertIn('last_update', file_data)
             self.assertIn('last_update_location', file_data)
             self.assertEqual(file_data['last_update_location'], 'uuid')
@@ -155,12 +153,11 @@ class DirectoryIndexTests(unittest.TestCase):
         os.remove(self.TEST_DIR + '/.syncall_index')
 
     def test_same_file(self):
-        directory = syncall.Directory('uuid', self.TEST_DIR)
-        directory.update_index(save_index=True)
+        self.directory.update_index(save_index=True)
 
         readme_file = self.TEST_DIR + '/README.txt'
-        readme_file_data = directory._index['README.txt']
-        old_last_update = directory._index['README.txt']['last_update']
+        readme_file_data = self.directory._index['README.txt']
+        old_last_update = self.directory._index['README.txt']['last_update']
 
         readme_file_data['deleted'] = True
 
@@ -170,8 +167,8 @@ class DirectoryIndexTests(unittest.TestCase):
         # Touch the readme file
         os.utime(readme_file, None)
 
-        directory.uuid = 'uuid_new'
-        directory.update_index(save_index=False)
+        self.directory.uuid = 'uuid_new'
+        self.directory.update_index(save_index=False)
 
         # File shouldn't be detected as changed if hashes are the same
         self.assertEqual(readme_file_data['last_update'], old_last_update)
@@ -191,11 +188,11 @@ class DirectoryIndexTests(unittest.TestCase):
         with open(readme_file, 'w') as file:
             file.write("test content v1")
 
-        directory = syncall.Directory('uuid', self.TEST_DIR)
-        directory.update_index(save_index=False)
+        self.directory.update_index(save_index=False)
 
-        readme_file_data = directory._index['animals/README.txt']
-        old_last_update = directory._index['animals/README.txt']['last_update']
+        readme_file_data = self.directory._index['animals/README.txt']
+        old_last_update = \
+            self.directory._index['animals/README.txt']['last_update']
 
         # Make sure the modification times differ
         time.sleep(1)
@@ -207,8 +204,8 @@ class DirectoryIndexTests(unittest.TestCase):
         with open(added_file, 'w') as file:
             file.write("added file content")
 
-        directory.uuid = 'uuid_new'
-        directory.update_index(save_index=False)
+        self.directory.uuid = 'uuid_new'
+        self.directory.update_index(save_index=False)
 
         self.assertEqual(readme_file_data['last_update_location'], 'uuid_new')
         self.assertGreater(readme_file_data['last_update'], old_last_update)
@@ -218,6 +215,6 @@ class DirectoryIndexTests(unittest.TestCase):
             readme_file_data['last_update']
         )
 
-        self.assertIn('animals/added_file.txt', directory._index)
+        self.assertIn('animals/added_file.txt', self.directory._index)
 
         os.remove(self.TEST_DIR + '/animals/added_file.txt')
