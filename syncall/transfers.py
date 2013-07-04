@@ -231,7 +231,7 @@ class FileTransfer(threading.Thread):
         self.timestamp = None
         self.file_name = file_name
         if file_name is not None:
-            self.file_data = self.directory.get_index()[self.file_name]
+            self.file_data = self.directory.get_index(self.file_name)
         else:
             self.file_data = None
 
@@ -425,6 +425,7 @@ class FileTransfer(threading.Thread):
                     .format(self.messanger.address[0], self.file_name)
                 )
                 self.terminate()
+                return
 
             self.__data_received(data['binary_data'])
 
@@ -442,7 +443,7 @@ class FileTransfer(threading.Thread):
         else:
             self.logger.error("Unknown packet from {}: {}".format(
                 self.messanger.address[0],
-                packet['type']
+                data['type']
             ))
 
     def __data_received(self, block):
