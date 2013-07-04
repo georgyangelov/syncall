@@ -29,6 +29,8 @@ class DirectoryIndexTests(unittest.TestCase):
         )
 
     def tearDown(self):
+        del self.directory
+
         try:
             os.remove(self.TEST_DIR + '/.syncall_index')
         except:
@@ -41,10 +43,13 @@ class DirectoryIndexTests(unittest.TestCase):
 
     @patch("os.mkdir")
     def test_create_temp_dir(self, mkdir):
-        directory = syncall.Directory('uuid', self.TEST_DIR,
-                                      temp_dir_name='.syncall_temp',
-                                      create_temp_dir=True,
-                                      load_index=False)
+        directory = syncall.Directory(
+            'uuid',
+            self.TEST_DIR,
+            temp_dir_name='.syncall_temp',
+            create_temp_dir=True,
+            load_index=False
+        )
 
         mkdir.assert_called_with(
             os.path.join(self.TEST_DIR, '.syncall_temp')
@@ -121,7 +126,6 @@ class DirectoryIndexTests(unittest.TestCase):
             )
 
         self.assertTrue(os.path.exists(self.TEST_DIR + '/.syncall_index'))
-        os.remove(self.TEST_DIR + '/.syncall_index')
 
     def test_load_index(self):
         directory = syncall.Directory('uuid', self.TEST_DIR)
@@ -150,8 +154,6 @@ class DirectoryIndexTests(unittest.TestCase):
                 file_data['last_update']
             )
 
-        os.remove(self.TEST_DIR + '/.syncall_index')
-
     def test_same_file(self):
         self.directory.update_index(save_index=True)
 
@@ -178,8 +180,6 @@ class DirectoryIndexTests(unittest.TestCase):
             readme_file_data['sync_log']['uuid'],
             readme_file_data['last_update']
         )
-
-        os.remove(self.TEST_DIR + '/.syncall_index')
 
     def test_modified_file(self):
         added_file = self.TEST_DIR + '/animals/added_file.txt'
@@ -217,4 +217,117 @@ class DirectoryIndexTests(unittest.TestCase):
 
         self.assertIn('animals/added_file.txt', self.directory._index)
 
-        os.remove(self.TEST_DIR + '/animals/added_file.txt')
+    def test_finalize_transfer_to_remote(self):
+        transfer = Mock()
+        transfer.type = syncall.transfers.FileTransfer.TO_REMOTE
+        transfer.file_name = 'file1'
+        transfer.get_remote_uuid.return_value = 'uuid2'
+        transfer.timestamp = 1250
+
+        self.directory.last_update = 123
+        self.directory.save_index = Mock()
+        self.directory.index_updated = Mock()
+        self.directory._index['file1'] = {
+            'last_update': 1234,
+            'sync_log': {
+                'my_uuid': 1234,
+                'uuid1': 1200,
+                'uuid2': 1000
+            }
+        }
+
+        self.directory.finalize_transfer(transfer)
+
+        self.assertGreater(self.directory.last_update, 123)
+        self.assertEqual(self.directory._index['file1'], {
+            'last_update': 1234,
+            'sync_log': {
+                'my_uuid': 1234,
+                'uuid1': 1200,
+                'uuid2': 1250
+            }
+        })
+        self.directory.index_updated.notify.assert_called_once_with(
+            {'file1'}
+        )
+        self.assertTrue(self.directory.save_index.called)
+
+    @patch('shutil.move')
+    @patch('syncall.index.IndexDiff.compare_file')
+    def test_finalize_transfer_from_remote(self, compare_file, move):
+        transfer = Mock()
+        transfer.type = syncall.transfers.FileTransfer.FROM_REMOTE
+        transfer.file_name = 'file1'
+        transfer.messanger.my_uuid = 'uuid2'
+        transfer.timestamp = 1250
+        transfer.get_temp_path.return_value = '/temp/file1'
+        transfer.remote_file_data = {
+            'last_update': 1234,
+            'sync_log': {
+                'my_uuid': 1234,
+                'uuid1': 1200,
+                'uuid2': 1000
+            }
+        }
+
+        compare_file.return_value = syncall.index.NEEDS_UPDATE
+
+        self.directory.get_file_path = Mock()
+        self.directory.get_file_path.return_value = '/dir/file1'
+
+        self.directory.last_update = 123
+        self.directory.save_index = Mock()
+        self.directory.index_updated = Mock()
+
+        self.directory.finalize_transfer(transfer)
+
+        self.assertGreater(self.directory.last_update, 123)
+        self.assertEqual(self.directory._index['file1'], {
+            'last_update': 1234,
+            'sync_log': {
+                'my_uuid': 1234,
+                'uuid1': 1200,
+                'uuid2': 1250
+            }
+        })
+        self.directory.index_updated.notify.assert_called_once_with(
+            {'file1'}
+        )
+        self.assertTrue(self.directory.save_index.called)
+
+    @patch('syncall.index.IndexDiff.compare_file')
+    def test_finalize_transfer_from_remote_old(self, compare_file):
+        transfer = Mock()
+        transfer.type = syncall.transfers.FileTransfer.FROM_REMOTE
+        transfer.file_name = 'file1'
+
+        compare_file.return_value = syncall.index.CONFLICT
+
+        self.directory.get_file_path = Mock()
+        self.directory.get_file_path.return_value = '/dir/file1'
+
+        self.directory.last_update = 123
+        self.directory.save_index = Mock()
+        self.directory.index_updated = Mock()
+        self.directory._index['file1'] = {
+            'last_update': 1234,
+            'sync_log': {
+                'my_uuid': 1234,
+                'uuid1': 1200,
+                'uuid2': 1000
+            }
+        }
+
+        self.directory.finalize_transfer(transfer)
+
+        self.assertEqual(self.directory.last_update, 123)
+        self.assertEqual(self.directory._index['file1'], {
+            'last_update': 1234,
+            'sync_log': {
+                'my_uuid': 1234,
+                'uuid1': 1200,
+                'uuid2': 1000
+            }
+        })
+        self.assertFalse(self.directory.index_updated.notify.called)
+        self.assertTrue(self.directory.save_index.called)

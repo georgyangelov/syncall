@@ -229,7 +229,7 @@ class Directory:
         return IndexDiff.diff(self._index, remote_index)
 
     def finalize_transfer(self, transfer):
-        if transfer.type == transfer.TO_REMOTE:
+        if transfer.type == syncall.transfers.FileTransfer.TO_REMOTE:
             self.__finalize_transfer_to_remote(transfer)
         else:
             self.__finalize_transfer_from_remote(transfer)
