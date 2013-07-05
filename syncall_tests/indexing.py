@@ -290,9 +290,10 @@ class DirectoryIndexTests(unittest.TestCase):
         )
         self.assertTrue(self.directory.save_index.called)
 
+    @patch('os.makedirs')
     @patch('shutil.move')
     @patch('syncall.index.IndexDiff.compare_file')
-    def test_finalize_transfer_from_remote(self, compare_file, move):
+    def test_finalize_transfer_from_remote(self, compare_file, move, makedirs):
         transfer = Mock()
         transfer.type = syncall.transfers.FileTransfer.FROM_REMOTE
         transfer.file_name = 'file1'
@@ -331,6 +332,7 @@ class DirectoryIndexTests(unittest.TestCase):
         self.directory.index_updated.notify.assert_called_once_with(
             {'file1'}
         )
+        self.assertTrue(makedirs.called)
         self.assertTrue(self.directory.save_index.called)
 
     @patch('os.remove')

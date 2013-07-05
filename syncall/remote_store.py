@@ -18,6 +18,7 @@ class RemoteStore:
 
         self.messanger = messanger
         self.directory = directory
+        self.directory.transfer_finalized += self.__transfer_finalized
 
         self.my_index_last_updated = 0
         self.remote_index = None
@@ -29,6 +30,15 @@ class RemoteStore:
         self.disconnected = Event()
         self.messanger.disconnected += self.__disconnected
         self.messanger.packet_received += self._packet_received
+
+    def __transfer_finalized(self, data):
+        remote_uuid, file_name, file_data = data
+
+        if self.uuid != remote_uuid:
+            return
+
+        if self.remote_index is not None:
+            self.remote_index[file_name] = file_data
 
     def request_transfer(self, transfer_messanger):
         # Pass the transfer request to the transfer manager
@@ -77,6 +87,16 @@ class RemoteStore:
         self.my_index_last_updated = self.directory.get_last_update()
 
         index = self.directory.get_index()
+
+        if self.remote_index is not None:
+            for file_name in list(changes):
+                if file_name in self.remote_index and \
+                        index[file_name] == self.remote_index[file_name]:
+                    changes.remove(file_name)
+
+        if len(changes) == 0:
+            return
+
         self.messanger.send({
             'type': MSG_INDEX_DELTA,
             'index': {file_name: index[file_name] for file_name in changes}
@@ -111,10 +131,18 @@ class RemoteStore:
             self.__remote_index_updated()
 
         elif packet['type'] == MSG_INDEX_DELTA:
+            updates = False
+
             for file_name, file_data in packet['index'].items():
+                if self.remote_index is None or \
+                        file_name not in self.remote_index or \
+                        self.remote_index[file_name] != file_data:
+                    updates = True
+
                 self.remote_index[file_name] = file_data
 
-            self.__remote_index_updated()
+            if updates:
+                self.__remote_index_updated()
 
         elif packet['type'] == MSG_REQUEST_INDEX:
             self.send_index(request=False)

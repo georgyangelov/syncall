@@ -15,6 +15,7 @@ class TransferDictTests(TestCase):
         transfer = Mock()
         transfer.file_name = 'file1'
         transfer.get_remote_uuid.return_value = 'uuid1'
+        transfer.type = syncall.transfers.FileTransfer.TO_REMOTE
 
         self.dict.add(transfer)
 
@@ -35,10 +36,12 @@ class TransferDictTests(TestCase):
         transfer1 = Mock()
         transfer1.file_name = 'file1'
         transfer1.get_remote_uuid.return_value = 'uuid1'
+        transfer1.type = syncall.transfers.FileTransfer.TO_REMOTE
 
         transfer2 = Mock()
         transfer2.file_name = 'file1'
         transfer2.get_remote_uuid.return_value = 'uuid2'
+        transfer2.type = syncall.transfers.FileTransfer.TO_REMOTE
 
         self.dict.add(transfer1)
         self.dict.add(transfer2)
@@ -55,6 +58,7 @@ class TransferDictTests(TestCase):
         transfer1 = Mock()
         transfer1.file_name = 'file1'
         transfer1.get_remote_uuid.return_value = 'uuid1'
+        transfer1.type = syncall.transfers.FileTransfer.TO_REMOTE
 
         self.dict.add(transfer1)
         self.dict.remove(transfer1)

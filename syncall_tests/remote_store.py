@@ -11,8 +11,9 @@ class RemoteStoreTests(unittest.TestCase):
     def setUp(self, logger):
         self.remote = syncall.RemoteStore(
             MagicMock(),
-            Mock()
+            MagicMock()
         )
+        self.remote.uuid = 'uuid'
         self.remote.directory.diff = MagicMock()
 
     def tearDown(self):
@@ -39,6 +40,17 @@ class RemoteStoreTests(unittest.TestCase):
             self.remote,
             transfer_messanger
         )
+
+    def test_transfer_finalized(self):
+        self.remote.remote_index = dict()
+
+        self.remote._RemoteStore__transfer_finalized(
+            ('uuid', 'file1', {'test': 'test'})
+        )
+
+        self.assertEqual(self.remote.remote_index['file1'], {
+            'test': 'test'
+        })
 
     def test_start_receiving(self):
         self.remote.directory.get_last_update.return_value = 5
@@ -85,7 +97,11 @@ class RemoteStoreTests(unittest.TestCase):
         self.remote.directory.get_last_update.return_value = 5
         self.remote.directory.get_index.return_value = {
             'file1': {'test1': 'test1'},
-            'file2': {'test2': 'test2'}
+            'file2': {'test2': 'test2'},
+            'file3': {'test3': 'test3'}
+        }
+        self.remote.remote_index = {
+            'file3': {'test3': 'test3'}
         }
 
         self.remote.send_index_delta(

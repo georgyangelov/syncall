@@ -16,11 +16,20 @@ class TransferDict:
         # file: dict(remote_uuid: transfer)
         self.transfers = dict()
 
+        # remote_uuid: set(transfer)
+        self.active_sending = dict()
+
     def has_transfers(self, file):
         return file in self.transfers
 
     def has(self, file, remote_uuid):
         return file in self.transfers and remote_uuid in self.transfers[file]
+
+    def num_active_sending(self, uuid):
+        if uuid not in self.active_sending:
+            return 0
+
+        return len(self.active_sending[uuid])
 
     def has_same(self, transfer):
         return self.has(transfer.file_name, transfer.get_remote_uuid())
@@ -44,6 +53,13 @@ class TransferDict:
 
         transfer_info[transfer.get_remote_uuid()] = transfer
 
+        if transfer.type == syncall.transfers.FileTransfer.TO_REMOTE:
+            transfer_set = self.active_sending.setdefault(
+                transfer.get_remote_uuid(),
+                set()
+            )
+            transfer_set.add(transfer)
+
     def remove(self, transfer):
         if not self.has_same(transfer):
             return
@@ -52,16 +68,25 @@ class TransferDict:
 
         del transfer_info[transfer.get_remote_uuid()]
 
+        if transfer.type == syncall.transfers.FileTransfer.TO_REMOTE:
+            self.active_sending[transfer.get_remote_uuid()].remove(transfer)
+
 
 class TransferManager:
-    def __init__(self, directory):
+    def __init__(self, directory, transfer_limit=2):
         self.logger = logging.getLogger(__name__)
 
         self.directory = directory
+        self.transfer_limit = transfer_limit
 
         self.transfers_lock = threading.Lock()
 
         self.transfers = TransferDict()
+
+        # (file_name, uuid)
+        self.queued = set()
+        # uuid: transfer
+        self.queue = dict()
 
     def process_transfer(self, remote, messanger):
         """
@@ -84,9 +109,13 @@ class TransferManager:
             )
 
             self.hook_events(transfer, start_event=True)
+            transfer.initialize()
 
     def sync_file(self, remote, file):
         with self.transfers_lock:
+            if (file, remote.uuid) in self.queued:
+                return
+
             if self.transfers.has(file, remote.uuid):
                 # This file is already being transferred to that remote
                 transfer = self.transfers.get(file, remote.uuid)
@@ -104,6 +133,19 @@ class TransferManager:
                     # Index hasn't changed so just keep the old transfer
                     return
 
+            num_transfers = self.transfers.num_active_sending(
+                remote.uuid
+            )
+
+            start_now = num_transfers < self.transfer_limit
+
+            if not start_now:
+                queue = self.queue.setdefault(remote.uuid, set())
+                queue.add((file, remote))
+                self.queued.add((file, remote.uuid))
+
+                return
+
             self.logger.debug("Syncing {}".format(file))
 
             messanger = syncall.Messanger.connect(
@@ -120,9 +162,12 @@ class TransferManager:
                 file,
                 syncall.DEFAULT_BLOCK_SIZE
             )
+
+            self.hook_events(transfer, start_event=False)
+
             self.transfers.add(transfer)
 
-        self.hook_events(transfer, start_event=False)
+        transfer.initialize()
         transfer.start()
 
     def hook_events(self, transfer, start_event=True):
@@ -133,8 +178,6 @@ class TransferManager:
         if start_event:
             transfer.transfer_started += self.__transfer_started
 
-        transfer.initialize()
-
     def __transfer_started(self, transfer):
         """
         Handler for the transfer_started event. Only called if the
@@ -143,6 +186,9 @@ class TransferManager:
         with self.transfers_lock:
             if self.transfers.has_same(transfer):
                 old_transfer = self.transfers.get_same(transfer)
+
+                if old_transfer.file_data is None:
+                    return
 
                 diff = syncall.IndexDiff.compare_file(
                     old_transfer.file_data,
@@ -160,31 +206,56 @@ class TransferManager:
             self.transfers.add(transfer)
 
     def __transfer_completed(self, transfer):
-        self.directory.finalize_transfer(transfer)
-
-        self.logger.debug(
-            "Transfer of {} : {} completed"
-            .format(transfer.file_name, transfer.get_remote_uuid())
-        )
-
         with self.transfers_lock:
+            self.directory.finalize_transfer(transfer)
+
+            self.logger.debug(
+                "Transfer of {} : {} completed"
+                .format(transfer.file_name, transfer.get_remote_uuid())
+            )
+
             self.transfers.remove(transfer)
+            new_transfer = self.__get_queued(transfer)
+
+        if new_transfer is not None:
+            self.sync_file(new_transfer[0], new_transfer[1])
 
     def __transfer_failed(self, transfer):
-        self.logger.debug(
-            "Transfer of {} : {} failed"
-            .format(transfer.file_name, transfer.get_remote_uuid())
-        )
+        with self.transfers_lock:
+            self.logger.debug(
+                "Transfer of {} : {} failed"
+                .format(transfer.file_name, transfer.get_remote_uuid())
+            )
 
-        self.transfers.remove(transfer)
+            self.transfers.remove(transfer)
+            new_transfer = self.__get_queued(transfer)
+
+        if new_transfer is not None:
+            self.sync_file(new_transfer[0], new_transfer[1])
 
     def __transfer_cancelled(self, transfer):
-        self.logger.debug(
-            "Transfer of {} : {} was cancelled"
-            .format(transfer.file_name, transfer.get_remote_uuid())
-        )
+        with self.transfers_lock:
+            self.logger.debug(
+                "Transfer of {} : {} was cancelled"
+                .format(transfer.file_name, transfer.get_remote_uuid())
+            )
 
-        self.transfers.remove(transfer)
+            self.transfers.remove(transfer)
+            new_transfer = self.__get_queued(transfer)
+
+        if new_transfer is not None:
+            self.sync_file(new_transfer[0], new_transfer[1])
+
+    def __get_queued(self, old_transfer):
+        uuid = old_transfer.get_remote_uuid()
+
+        if uuid in self.queue and len(self.queue[uuid]) > 0:
+            new_file, remote = self.queue[uuid].pop()
+            self.queued.remove((new_file, remote.uuid))
+
+            return (remote, new_file)
+
+        return None
 
     def sync_files(self, remote, file_list):
         for file in file_list:

@@ -51,6 +51,8 @@ class Directory:
         self.transfer_manager = syncall.TransferManager(self)
 
         self.index_updated = Event()
+        # Contains tuple(uuid, file_name, file_index) as data
+        self.transfer_finalized = Event()
 
         if load_index:
             self.load_index()
@@ -65,6 +67,7 @@ class Directory:
         Return a path to a temp file that can be written to.
         Use `proposed_name` if it's available or modify it so it is.
         """
+        proposed_name = os.path.basename(proposed_name)
         name = proposed_name
         file_suffix = 0
 
@@ -225,7 +228,9 @@ class Directory:
             self.index_updated.notify(changes)
 
     def _update_file_index(self, file_path, changes):
-        relative_path = os.path.relpath(file_path, self.dir_path)
+        relative_path = pathext.normalize(
+            os.path.relpath(file_path, self.dir_path)
+        )
         file_data = self._index.setdefault(relative_path, dict())
 
         if not file_data:
@@ -303,6 +308,15 @@ class Directory:
 
                 else:
 
+                    try:
+                        os.makedirs(
+                            os.path.dirname(
+                                self.get_file_path(transfer.file_name)
+                            )
+                        )
+                    except:
+                        pass
+
                     # Update the actual file
                     shutil.move(
                         transfer.get_temp_path(),
@@ -332,6 +346,7 @@ class Directory:
         self._index[file_name] = file_index
 
         self.last_update = datetime.now().timestamp()
+        self.transfer_finalized.notify((uuid, file_name, file_index))
 
 
 class IndexDiff:
