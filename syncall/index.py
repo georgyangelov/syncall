@@ -106,6 +106,10 @@ class Directory:
             if file_name not in self._index:
                 return []
 
+            file_data = self._get_index_unsafe(file_name)
+            if 'deleted' in file_data and file_data['deleted']:
+                return []
+
             with open(self.get_file_path(file_name), 'rb') as file:
                 block_checksums = list(pyrsync2.blockchecksums(
                     file,
@@ -192,17 +196,24 @@ class Directory:
             # Mark each deleted file with the current timestamp
             # and UUID to avoid conflicts and to propagate properly
             timestamp = datetime.now().timestamp()
-            for file_data in self._index.values():
+            for file_name, file_data in self._index.items():
                 if 'not_found' in file_data:
                     del file_data['not_found']
 
-                    # File has been deleted
+                    if 'deleted' in file_data and file_data['deleted']:
+                        # File has been deleted some time ago...
+                        continue
+
+                    # File has been deleted now
                     file_data['deleted'] = True
                     file_data['last_update'] = timestamp
                     file_data['last_update_location'] = self.uuid
+                    file_data['hash'] = b''
 
                     sync_log = file_data.setdefault('sync_log', dict())
                     sync_log[self.uuid] = timestamp
+
+                    changes.add(file_name)
 
             if changes:
                 self.last_update = datetime.now().timestamp()

@@ -357,6 +357,13 @@ class FileTransfer(threading.Thread):
                 "type": self.MSG_DONE
             })
 
+    def is_delete(self):
+        if self.type == self.TO_REMOTE:
+            return 'deleted' in self.file_data and self.file_data['deleted']
+        else:
+            return 'deleted' in self.remote_file_data and \
+                self.remote_file_data['deleted']
+
     def __accept_file(self, file_name, file_data):
         """
         Make sure the file needs to be transferred
@@ -371,34 +378,48 @@ class FileTransfer(threading.Thread):
             self.file_name = file_name
             self.file_data = self.directory.get_index(self.file_name)
             self.remote_file_data = file_data
-            self.__temp_file_name = self.directory.get_temp_path(
-                self.file_name
-            )
-            self.__temp_file_handle = open(self.__temp_file_name, 'wb')
 
-            if os.path.exists(self.directory.get_file_path(self.file_name)):
-                self.__file_handle = open(
-                    self.directory.get_file_path(self.file_name),
-                    'rb'
+            if not self.is_delete():
+                self.__temp_file_name = self.directory.get_temp_path(
+                    self.file_name
                 )
-            else:
-                self.__file_handle = BytesIO()
+                self.__temp_file_handle = open(self.__temp_file_name, 'wb')
+
+                if os.path.exists(
+                    self.directory.get_file_path(self.file_name)
+                ):
+                    self.__file_handle = open(
+                        self.directory.get_file_path(self.file_name),
+                        'rb'
+                    )
+                else:
+                    self.__file_handle = BytesIO()
 
             self.__transfer_started = True
             self.transfer_started.notify(self)
 
-            self.messanger.send({
-                "type": self.MSG_INIT_ACCEPT,
-                "block_size": self.block_size,
-                "checksums": self.directory.get_block_checksums(
-                    self.file_name,
-                    self.block_size
+            if self.is_delete():
+                self.messanger.send({
+                    "type": self.MSG_INIT_ACCEPT
+                })
+                self.logger.debug(
+                    "Accepted a file delete request for {} from {}"
+                    .format(file_name, self.messanger.address[0])
                 )
-            })
-            self.logger.debug(
-                "Accepted a file transfer request for {} from {}"
-                .format(file_name, self.messanger.address[0])
-            )
+
+            else:
+                self.messanger.send({
+                    "type": self.MSG_INIT_ACCEPT,
+                    "block_size": self.block_size,
+                    "checksums": self.directory.get_block_checksums(
+                        self.file_name,
+                        self.block_size
+                    )
+                })
+                self.logger.debug(
+                    "Accepted a file transfer request for {} from {}"
+                    .format(file_name, self.messanger.address[0])
+                )
         else:
             self.logger.error(
                 "File transfer requested for {} from {} shouldn't be updated"
@@ -407,11 +428,57 @@ class FileTransfer(threading.Thread):
             self.shutdown()
 
     def __packet_received(self, data):
+        """
+        Message sequence should be:
+
+            1. MSG_INIT | sender -> receiver
+                - Contains file_name and file_data (index data)
+            2. MSG_INIT_ACCEPT or MSG_CANCEL | receiver -> sender
+                - Contains block_size and block checksums
+            3. Multiple MSG_BLOCK_DATA | sender -> receiver
+                - Contains the delta data for each block, in sequence
+            4. MSG_DONE | sender -> receiver
+                - No other data is going to be transfered
+                  (no more MSG_BLOCK_DATA)
+            5. MSG_DONE_ACCEPT | receiver -> sender
+                - The receiver successfuly received and processed the data
+                  and the file index for the file should be updated on both
+                  ends to reflect the sync time.
+                - Contains `time` field with the current timestamp on the
+                  receiver machine. It's used to update both indexes to handle
+                  time offsets between the two machines.
+                - The sender should close the connection after receiving this
+                  packet.
+
+            If the transfer is supposed to delete a file then step 3 is skipped
+            and the sender should send MSG_DONE immedeately after
+            MSG_INIT_ACCEPT. The file itself should be deleted on the receiver
+            after the MSG_DONE message and MSG_DONE_ACCEPT is sent if the
+            delete is successful.
+
+            MSG_CANCEL can be sent at any time from the receiver or the sender
+            and the one that receives it should close the connection.
+
+            If no MSG_CANCEL or MSG_DONE_ACCEPT message is received
+            then the connection is regarded as closed unexpectedly
+            and the transfer is considered failed.
+        """
+
         if data['type'] == self.MSG_INIT:
             self.__accept_file(data['name'], data['data'])
 
         elif data['type'] == self.MSG_INIT_ACCEPT:
-            self.__transfer_file(data['checksums'], data['block_size'])
+            if self.is_delete():
+                self.logger.debug(
+                    "Transferring delete of {} to {}"
+                    .format(self.file_name, self.messanger.address[0])
+                )
+
+                self.messanger.send({
+                    "type": self.MSG_DONE
+                })
+            else:
+                self.__transfer_file(data['checksums'], data['block_size'])
 
         elif data['type'] == self.MSG_CANCEL:
             self.__transfer_cancelled = True
@@ -465,11 +532,12 @@ class FileTransfer(threading.Thread):
     def __complete_transfer(self):
         self.timestamp = int(datetime.now().timestamp())
 
-        # Flush the file contents
-        self.__file_handle.close()
-        self.__file_handle = None
-        self.__temp_file_handle.close()
-        self.__temp_file_handle = None
+        if not self.is_delete():
+            # Flush the file contents
+            self.__file_handle.close()
+            self.__file_handle = None
+            self.__temp_file_handle.close()
+            self.__temp_file_handle = None
 
         # Remote side should disconnect after MSG_DONE_ACCEPT
         self.__transfer_completed = True

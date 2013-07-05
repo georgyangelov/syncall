@@ -139,5 +139,6 @@ class RemoteStore:
                 .format(self.uuid, diff[2])
             )
 
-        # TODO: Handle deleted and conflicted files
+        # TODO: Handle conflicted files
         self.directory.transfer_manager.sync_files(self, diff[0])
+        self.directory.transfer_manager.sync_files(self, diff[1])
