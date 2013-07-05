@@ -132,6 +132,10 @@ class Directory:
             self.last_update = datetime.now().timestamp()
 
     def get_index(self, file_name=None):
+        with self.fs_access_lock:
+            return self._get_index_unsafe(file_name=file_name)
+
+    def _get_index_unsafe(self, file_name=None):
         if file_name is None:
             return self._index
         elif file_name not in self._index:
@@ -148,7 +152,7 @@ class Directory:
 
     def update_index(self, save_index=True):
         """
-        Update self._index (use the get_index() method) to get it.
+        Update self._index (use the get_index() method to get it).
 
         Return True if index changed, False otherwise.
 
@@ -175,12 +179,30 @@ class Directory:
         changes = set()
 
         with self.fs_access_lock:
+            for file_data in self._index.values():
+                file_data['not_found'] = True
+
             for dirpath, dirnames, filenames in os.walk(self.dir_path):
                 for name in filenames:
                     file_path = pathext.normalize(os.path.join(dirpath, name))
 
                     if not re.search(self.IGNORE_PATTERNS, file_path):
                         self._update_file_index(file_path, changes)
+
+            # Mark each deleted file with the current timestamp
+            # and UUID to avoid conflicts and to propagate properly
+            timestamp = datetime.now().timestamp()
+            for file_data in self._index.values():
+                if 'not_found' in file_data:
+                    del file_data['not_found']
+
+                    # File has been deleted
+                    file_data['deleted'] = True
+                    file_data['last_update'] = timestamp
+                    file_data['last_update_location'] = self.uuid
+
+                    sync_log = file_data.setdefault('sync_log', dict())
+                    sync_log[self.uuid] = timestamp
 
             if changes:
                 self.last_update = datetime.now().timestamp()
@@ -225,6 +247,9 @@ class Directory:
         if 'deleted' in file_data:
             del file_data['deleted']
 
+        if 'not_found' in file_data:
+            del file_data['not_found']
+
     def diff(self, remote_index):
         return IndexDiff.diff(self._index, remote_index)
 
@@ -240,24 +265,38 @@ class Directory:
         with self.fs_access_lock:
             self.__update_index_after_transfer(
                 transfer.file_name,
-                self.get_index(transfer.file_name),
+                self._get_index_unsafe(transfer.file_name),
                 transfer.get_remote_uuid(),
                 transfer.timestamp
             )
 
+        self.index_updated.notify({transfer.file_name})
+
     def __finalize_transfer_from_remote(self, transfer):
+        updated = False
+
         with self.fs_access_lock:
             diff = IndexDiff.compare_file(
                 transfer.remote_file_data,
-                self.get_index(transfer.file_name)
+                self._get_index_unsafe(transfer.file_name)
             )
 
             if diff == NEEDS_UPDATE:
-                # Update the actual file
-                shutil.move(
-                    transfer.get_temp_path(),
-                    self.get_file_path(transfer.file_name)
-                )
+                if 'deleted' in transfer.remote_file_data and \
+                        transfer.remote_file_data['deleted']:
+
+                    try:
+                        os.remove(self.get_file_path(transfer.file_name))
+                    except:
+                        pass
+
+                else:
+
+                    # Update the actual file
+                    shutil.move(
+                        transfer.get_temp_path(),
+                        self.get_file_path(transfer.file_name)
+                    )
 
                 # Update the file index
                 self.__update_index_after_transfer(
@@ -266,18 +305,22 @@ class Directory:
                     transfer.messanger.my_uuid,
                     transfer.timestamp
                 )
+
+                updated = True
             else:
                 self.logger.debug(
                     "Skipping update of outdated file {} from {}"
                     .format(transfer.file_name, transfer.get_remote_uuid())
                 )
 
+        if updated:
+            self.index_updated.notify({transfer.file_name})
+
     def __update_index_after_transfer(self, file_name, file_index, uuid, time):
         file_index['sync_log'][uuid] = time
         self._index[file_name] = file_index
 
         self.last_update = datetime.now().timestamp()
-        self.index_updated.notify({file_name})
 
 
 class IndexDiff:
