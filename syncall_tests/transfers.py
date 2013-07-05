@@ -651,6 +651,7 @@ class FileTransferReceiveTests(TestCase):
     def test_complete_transfer(self, datetime):
         datetime.now.return_value = Mock()
         datetime.now.return_value.timestamp.return_value = 1234
+        self.transfer.remote_file_data = dict()
 
         file_handle = self.transfer._FileTransfer__file_handle = Mock()
         temp_handle = self.transfer._FileTransfer__temp_file_handle = Mock()

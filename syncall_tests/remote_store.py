@@ -144,15 +144,19 @@ class RemoteStoreTests(unittest.TestCase):
         }
         directory.diff.return_value = (
             {'file1'},
-            set(),
+            {'file2'},
             set()
         )
 
         self.remote._packet_received(packet)
 
-        directory.transfer_manager.sync_files.assert_called_once_with(
+        directory.transfer_manager.sync_files.assert_any_call(
             self.remote,
             {'file1'}
+        )
+        directory.transfer_manager.sync_files.assert_any_call(
+            self.remote,
+            {'file2'}
         )
         self.assertEqual(self.remote.remote_index, packet['index'])
 
