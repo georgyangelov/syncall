@@ -32,20 +32,22 @@ class RemoteStoreManager:
         # This will trigger their diconnected event and will remove them
         # from the remotes dictionary
         with self.remotes_lock:
-            for remote in self.remotes.values():
+            for remote in list(self.remotes.values()):
                 remote.disconnect()
 
-    def send_index(self, changed_files=None):
+    def send_index(self, changed_files=None, force=False):
         with self.remotes_lock:
             if changed_files is None:
                 for remote in list(self.remotes.values()):
-                    remote.send_index()
+                    remote.send_index(force=force)
             else:
                 for remote in list(self.remotes.values()):
                     remote.send_index_delta(changed_files)
 
     def __index_updated(self, changed_files):
-        if changed_files:
+        if changed_files is None:
+            self.send_index(force=True)
+        elif changed_files:
             self.logger.debug(
                 "Sending index delta to all remotes: {}"
                 .format(changed_files)

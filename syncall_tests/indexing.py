@@ -170,8 +170,6 @@ class DirectoryIndexTests(unittest.TestCase):
         readme_file_data = self.directory._index['README.txt']
         old_last_update = self.directory._index['README.txt']['last_update']
 
-        readme_file_data['deleted'] = True
-
         # Make sure modification times are different
         time.sleep(1)
 
@@ -187,6 +185,32 @@ class DirectoryIndexTests(unittest.TestCase):
         self.assertIn('uuid', readme_file_data['sync_log'])
         self.assertEqual(
             readme_file_data['sync_log']['uuid'],
+            readme_file_data['last_update']
+        )
+
+    def test_same_file_deleted(self):
+        self.directory.update_index(save_index=True)
+
+        readme_file = self.TEST_DIR + '/README.txt'
+        readme_file_data = self.directory._index['README.txt']
+        old_last_update = self.directory._index['README.txt']['last_update']
+
+        readme_file_data['deleted'] = True
+
+        # Make sure modification times are different
+        time.sleep(1)
+
+        # Touch the readme file
+        os.utime(readme_file, None)
+
+        self.directory.uuid = 'uuid_new'
+        self.directory.update_index(save_index=False)
+
+        self.assertGreater(readme_file_data['last_update'], old_last_update)
+        self.assertEqual(readme_file_data['last_update_location'], 'uuid_new')
+        self.assertIn('uuid', readme_file_data['sync_log'])
+        self.assertEqual(
+            readme_file_data['sync_log']['uuid_new'],
             readme_file_data['last_update']
         )
 

@@ -107,7 +107,7 @@ try:
         elif cmd.lower() == 'scan':
             network_discovery.request()
         elif cmd.lower() == 'index':
-            share_dir_obj.update_index()
+            share_dir_obj.update_index(force=True)
 
             print(share_dir_obj._index)
             print(

@@ -85,7 +85,7 @@ class TransferManager:
 
         # (file_name, uuid)
         self.queued = set()
-        # uuid: transfer
+        # uuid: set(file, remote)
         self.queue = dict()
 
     def process_transfer(self, remote, messanger):

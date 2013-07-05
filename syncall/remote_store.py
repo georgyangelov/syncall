@@ -54,12 +54,13 @@ class RemoteStore:
         self.messanger.start_receiving()
         self.send_index(request=False)
 
-    def send_index(self, request=True):
-        if self.my_index_last_updated == self.directory.get_last_update():
+    def send_index(self, request=True, force=False):
+        if not force and \
+                self.my_index_last_updated == self.directory.get_last_update():
             # Nothing to do here, index is already up-to-date
-            self.logger.debug(
-                "Index update requested but there are no changes"
-            )
+            # self.logger.debug(
+            #     "Index update requested but there are no changes"
+            # )
 
             self.messanger.send({
                 'type': MSG_INDEX_NO_CHANGE
@@ -121,10 +122,10 @@ class RemoteStore:
             ))
             return
 
-        self.logger.debug("Received packet from {}: {}".format(
-            self.address,
-            packet['type']
-        ))
+        # self.logger.debug("Received packet from {}: {}".format(
+        #     self.address,
+        #     packet['type']
+        # ))
 
         if packet['type'] == MSG_INDEX:
             self.remote_index = packet['index']
@@ -157,7 +158,7 @@ class RemoteStore:
             ))
 
     def __remote_index_updated(self):
-        self.logger.debug("{}'s index updated".format(self.address))
+        # self.logger.debug("{}'s index updated".format(self.address))
 
         diff = self.directory.diff(self.remote_index)
 

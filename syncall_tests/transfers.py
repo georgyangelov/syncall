@@ -223,10 +223,14 @@ class TransferManagerTests(TestCase):
     def test_transfer_completed_handler(self):
         transfer = Mock()
         self.manager.transfers = Mock()
+        self.manager._TransferManager__get_queued = Mock()
+        self.manager._TransferManager__get_queued.return_value = ('uu', 'file')
+        self.manager.sync_file = Mock()
 
         self.manager._TransferManager__transfer_completed(transfer)
 
         self.manager.transfers.remove.assert_called_with(transfer)
+        self.assertTrue(self.manager.sync_file.called)
 
     def test_transfer_failed_handler(self):
         transfer = Mock()
@@ -288,6 +292,22 @@ class TransferManagerTests(TestCase):
         self.assertTrue(transfer_remote1.shutdown.called)
         self.assertFalse(transfer_remote2.shutdown.called)
         self.assertTrue(transfer_remote3.shutdown.called)
+
+    def test_get_queued(self):
+        remote = Mock()
+        remote.uuid = 'uuid'
+        self.manager.queue = {
+            'uuid': {('file1', remote)}
+        }
+        self.manager.queued = {
+            ('file1', 'uuid')
+        }
+        old = Mock()
+        old.get_remote_uuid.return_value = 'uuid'
+
+        queued = self.manager._TransferManager__get_queued(old)
+
+        self.assertEqual(queued, (remote, 'file1'))
 
 
 class FileTransferNotStartedTests(TestCase):

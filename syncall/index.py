@@ -157,7 +157,7 @@ class Directory:
             with open(self.index_path, 'wb') as index_file:
                 index_file.write(index)
 
-    def update_index(self, save_index=True):
+    def update_index(self, save_index=True, force=False):
         """
         Update self._index (use the get_index() method to get it).
 
@@ -224,7 +224,9 @@ class Directory:
         if save_index and changes:
             self.save_index()
 
-        if changes:
+        if force:
+            self.index_updated.notify(None)
+        elif changes:
             self.index_updated.notify(changes)
 
     def _update_file_index(self, file_path, changes):
@@ -261,6 +263,15 @@ class Directory:
                 changes.add(relative_path)
 
         if 'deleted' in file_data:
+            file_data['last_update'] = datetime.now().timestamp()
+            file_data['hash'] = bintools.hash_file(file_path)
+            file_data['last_update_location'] = self.uuid
+
+            sync_log = file_data.setdefault('sync_log', dict())
+            sync_log[self.uuid] = file_data['last_update']
+
+            changes.add(relative_path)
+
             del file_data['deleted']
 
         if 'not_found' in file_data:
