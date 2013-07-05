@@ -484,6 +484,18 @@ class FileTransferSendTests(TestCase):
             128
         )
 
+    def test_packet_received_init_accept_delete(self):
+        self.transfer._FileTransfer__transfer_file = Mock()
+        self.transfer.is_delete = Mock(return_value=True)
+
+        self.transfer._FileTransfer__packet_received({
+            'type': self.transfer.MSG_INIT_ACCEPT
+        })
+
+        self.transfer.messanger.send.assert_called_once_with({
+            'type': self.transfer.MSG_DONE
+        })
+
     def test_packet_received_done_accept(self):
         self.transfer.transfer_completed = Mock()
         self.transfer.terminate = Mock()
@@ -574,6 +586,41 @@ class FileTransferReceiveTests(TestCase):
                 (1234, b'12345'),
                 (1234, b'12345')
             ]
+        })
+
+        exists.return_value = True
+        self.transfer._FileTransfer__accept_file('file1', {
+            'last_update': 123
+        })
+
+    @patch('os.path.exists')
+    @patch('builtins.open')
+    @patch('syncall.IndexDiff.compare_file')
+    def test_accept_file_delete(self, compare_file, open, exists):
+        compare_file.return_value = syncall.index.NEEDS_UPDATE
+        exists.return_value = False
+        self.transfer.directory.get_index.return_value = {
+            'last_update': 100,
+        }
+        self.transfer.transfer_started = Mock()
+
+        self.transfer._FileTransfer__accept_file('file1', {
+            'last_update': 123,
+            'deleted': True
+        })
+
+        self.assertTrue(self.transfer.transfer_started.notify.called)
+        self.assertEqual(self.transfer.file_name, 'file1')
+        self.assertEqual(self.transfer.file_data, {
+            'last_update': 100
+        })
+        self.assertEqual(self.transfer.remote_file_data, {
+            'last_update': 123,
+            'deleted': True
+        })
+
+        self.transfer.messanger.send.assert_called_once_with({
+            'type': self.transfer.MSG_INIT_ACCEPT
         })
 
     def test_packet_received_init(self):

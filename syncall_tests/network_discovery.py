@@ -9,18 +9,21 @@ from syncall.network_discovery import BroadcastEventNotifierHandler
 
 class NetworkDiscoveryTests(unittest.TestCase):
 
+    @patch('logging.Logger')
+    @patch('syncall.network_discovery.BroadcastListener')
     @patch('socket.socket')
-    def test_discovery_event(self, socket):
-        net = syncall.NetworkDiscovery(1234, 2, 'uuid')
+    def setUp(self, socket, BroadcastListener, Logger):
+        self.net = syncall.NetworkDiscovery(1234, 2, 'uuid')
 
+    def test_discovery_event(self):
         calls = []
 
         def handler(data):
             calls.append(data)
 
-        net.client_discovered += handler
+        self.net.client_discovered += handler
 
-        net._NetworkDiscovery__receive_packet({
+        self.net._NetworkDiscovery__receive_packet({
             'server': self,
             'source': '127.0.0.1',
             'data': {
@@ -39,28 +42,26 @@ class NetworkDiscoveryTests(unittest.TestCase):
             }
         ])
 
-    @patch('socket.socket')
-    def test_request(self, socket):
-        net = syncall.NetworkDiscovery(1234, 2, 'uuid')
+    def test_start_listening(self):
+        self.net.start_listening()
 
-        calls = []
+        self.assertTrue(self.net.listener.start.called)
 
-        def broadcast(data, port):
-            calls.append((data, port))
+    def test_shutdown(self):
+        self.net.shutdown()
 
-        net._NetworkDiscovery__broadcast = broadcast
+        self.assertTrue(self.net.socket.shutdown.called)
 
-        net.request()
+    def test_request(self):
+        self.net.request()
 
-        self.assertEqual(calls, [
-            (
-                {
-                    'version': 2,
-                    'uuid': 'uuid'
-                },
-                1234
-            )
-        ])
+        self.net.socket.sendto.assert_called_once_with(
+            msgpack.packb({
+                'version': 2,
+                'uuid': 'uuid'
+            }),
+            (syncall.network_discovery.BROADCAST_ADDRESS, 1234)
+        )
 
     @patch('socket.socket')
     def test_broadcast_notifier(self, socket):
@@ -99,3 +100,30 @@ class NetworkDiscoveryTests(unittest.TestCase):
                 'server': dummy.server
             }
         ])
+
+        dummy.server.packet_received_error = Mock()
+        dummy.server.packet_received = Mock()
+        dummy.server.packet_received.notify.side_effect = Exception()
+
+        BroadcastEventNotifierHandler.handle(dummy)
+
+        dummy.server.packet_received_error = Mock()
+        dummy.packet = dummy.packet[:-4]
+
+        BroadcastEventNotifierHandler.handle(dummy)
+
+        self.assertTrue(dummy.server.packet_received_error.notify.called)
+
+    @patch('syncall.network_discovery.UDPServer')
+    @patch('syncall.network_discovery.Thread')
+    def test_listener(self, Thread, UDPServer):
+        listener = syncall.network_discovery.BroadcastListener(1234)
+
+        self.assertIsInstance(listener.packet_received, Event)
+        self.assertIsInstance(listener.packet_received_error, Event)
+
+        listener.serve_forever = Mock()
+
+        listener.run()
+
+        self.assertTrue(listener.serve_forever.called)

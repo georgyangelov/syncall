@@ -82,8 +82,17 @@ class DirectoryIndexTests(unittest.TestCase):
         blockchecksums.return_value = [1, 2, 3]
         hashes = self.directory.get_block_checksums('test', 1024)
 
-        assert not open.called, 'method should not have been called'
-        assert not blockchecksums.called, 'method should not have been called'
+        self.assertFalse(open.called)
+        self.assertFalse(blockchecksums.called)
+        self.assertEqual(len(hashes), 0)
+
+        self.directory._index['test'] = {
+            'deleted': True
+        }
+        hashes = self.directory.get_block_checksums('test', 1024)
+
+        self.assertFalse(open.called)
+        self.assertFalse(blockchecksums.called)
         self.assertEqual(len(hashes), 0)
 
         self.directory._index['test'] = dict()
@@ -217,6 +226,35 @@ class DirectoryIndexTests(unittest.TestCase):
 
         self.assertIn('animals/added_file.txt', self.directory._index)
 
+    @patch('os.walk')
+    def test_deleted_file(self, walk):
+        walk.return_value = []
+
+        self.directory._index['animals/README.txt'] = {
+            'last_update': 123,
+            'last_update_location': 'uuid',
+        }
+        old_file_data = self.directory._index['animals/README.txt']
+
+        old_last_update = old_file_data['last_update']
+        old_uuid = old_file_data['last_update_location']
+
+        self.directory.uuid = 'uuid_new'
+        self.directory.update_index(save_index=False)
+
+        readme_file_data = self.directory._index['animals/README.txt']
+
+        self.directory.update_index(save_index=False)
+
+        self.assertEqual(readme_file_data['last_update_location'], 'uuid_new')
+        self.assertGreater(readme_file_data['last_update'], old_last_update)
+        self.assertTrue(readme_file_data['deleted'])
+        self.assertIn('uuid_new', readme_file_data['sync_log'])
+        self.assertEqual(
+            readme_file_data['sync_log']['uuid_new'],
+            readme_file_data['last_update']
+        )
+
     def test_finalize_transfer_to_remote(self):
         transfer = Mock()
         transfer.type = syncall.transfers.FileTransfer.TO_REMOTE
@@ -292,6 +330,54 @@ class DirectoryIndexTests(unittest.TestCase):
         })
         self.directory.index_updated.notify.assert_called_once_with(
             {'file1'}
+        )
+        self.assertTrue(self.directory.save_index.called)
+
+    @patch('os.remove')
+    @patch('syncall.index.IndexDiff.compare_file')
+    def test_finalize_transfer_from_remote_deleted(self, compare_file, remove):
+        transfer = Mock()
+        transfer.type = syncall.transfers.FileTransfer.FROM_REMOTE
+        transfer.file_name = 'file1'
+        transfer.messanger.my_uuid = 'uuid2'
+        transfer.timestamp = 1250
+        transfer.get_temp_path.return_value = '/temp/file1'
+        transfer.remote_file_data = {
+            'last_update': 1234,
+            'deleted': True,
+            'sync_log': {
+                'my_uuid': 1234,
+                'uuid1': 1200,
+                'uuid2': 1000
+            }
+        }
+
+        compare_file.return_value = syncall.index.NEEDS_UPDATE
+
+        self.directory.get_file_path = Mock()
+        self.directory.get_file_path.return_value = '/dir/file1'
+
+        self.directory.last_update = 123
+        self.directory.save_index = Mock()
+        self.directory.index_updated = Mock()
+
+        self.directory.finalize_transfer(transfer)
+
+        self.assertGreater(self.directory.last_update, 123)
+        self.assertEqual(self.directory._index['file1'], {
+            'last_update': 1234,
+            'deleted': True,
+            'sync_log': {
+                'my_uuid': 1234,
+                'uuid1': 1200,
+                'uuid2': 1250
+            }
+        })
+        self.directory.index_updated.notify.assert_called_once_with(
+            {'file1'}
+        )
+        remove.assert_called_once_with(
+            self.directory.get_file_path(transfer.file_name)
         )
         self.assertTrue(self.directory.save_index.called)
 
